@@ -2,7 +2,9 @@
 // created by tift0 on 09.03.2025.
 //
 
-// primitive for now
+#pragma once
+
+// so primitive
 namespace math {
 	struct vec2_t {
 		uint16_t _x{}, _y{};
