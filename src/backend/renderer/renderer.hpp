@@ -4,13 +4,11 @@
 
 #pragma once
 
-#include <memory>
 #include <U8g2lib.h>
 
 #include "../math/math.hpp"
 
 namespace backend {
-    // @todo: aggregator for buffer
 	class c_renderer {
 	public:
 		void clear_buffer( U8G2& buffer ) { buffer.clearBuffer( ); }
@@ -31,5 +29,5 @@ namespace backend {
 		}
 	};
 
-	std::unique_ptr< c_renderer > g_renderer{};
+	extern c_renderer g_renderer{};
 };
