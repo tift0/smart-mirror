@@ -1,33 +1,42 @@
-//
-// created by tift0 on 09.03.2025.
-//
+// LIBRARY LCDWIKI OUTDATED
+// @todo: https://github.com/adafruit/Adafruit-ST7735-Library
 
+/*
 #pragma once
 
-#include <U8g2lib.h>
+#include <LCDWIKI_SPI.h>
 
 #include "../math/math.hpp"
 
 namespace backend {
 	class c_renderer {
+		LCDWIKI_SPI m_display;
+
 	public:
-		void clear_buffer( U8G2& buffer ) { buffer.clearBuffer( ); }
-
-		void send_buffer( U8G2& buffer ) { buffer.sendBuffer( ); }
-
-		void draw_string( U8G2& buffer, math::vec2_t pos, const String& str ) {
-            		buffer.setFont( u8g2_font_ncenB08_tr );
-            		buffer.drawStr( pos.x( ), pos.y( ), str.c_str( ) );
+		// @note: difference between ST7735S / ST7735S128 ?
+		c_renderer( std::int8_t chip_sel, std::int8_t cmd_data, std::int8_t rst )
+			: m_display( ST7735S, chip_sel, cmd_data, rst, -1 ) {
+			m_display.Init_LCD( );
+			m_display.Fill_Screen( 0x0000 );
 		}
 
-		void draw_line( U8G2& buffer, math::vec2_t start, math::vec2_t end ) {
-            		buffer.drawLine( start.x( ), start.y( ), end.x( ), end.y( ) );
+		void draw_str( const std::string& text, math::vec2_t pos, const std::uint8_t text_size ) {
+			m_display.Set_Text_Back_colour( 0x0000 );
+			m_display.Set_Text_colour( 0xffff );
+			m_display.Set_Text_Size( text_size );
+			m_display.Print_String( text.c_str( ), pos.x( ), pos.y( ) );
 		}
 
-		void draw_rect( U8G2& buffer, math::vec2_t pos, math::vec2_t size ) {
-            		buffer.drawBox( pos.x( ), pos.y( ), size.x( ), size.y( ) );
+		// @todo: + std::uint8_t round
+		void draw_rect( math::vec2_t pos, math::vec2_t size ) {
+			m_display.Draw_Rectangle( pos.x( ), pos.y( ), size.x( ), size.y( ) );
+		}
+
+		void draw_bitmap( math::vec2_t pos, math::vec2_t size, const std::uint16_t* data, std::uint16_t scale ) {
+			m_display.Draw_Bit_Map( pos.x( ), pos.y( ), size.x( ), size.y( ), data, scale );
 		}
 	};
 
-	extern c_renderer g_renderer{};
+	extern c_renderer g_renderer;
 };
+*/

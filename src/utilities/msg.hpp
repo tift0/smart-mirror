@@ -7,42 +7,35 @@
 #include <HardwareSerial.h>
 
 namespace msg {
-	enum e_msg { warn, err, inf, pos, neg, send, recv };
+	enum e_msg { none, warn, err, inf, pos, neg, send, recv };
 
 	class c_msg {
-		static std::string get_prefix( e_msg type ) {
-			std::string prefix{};
+		static std::string get_prefix( const e_msg type ) {
 			switch ( type ) {
 				case warn:
-					prefix = "[*] ";
-				break;
+					return "[*] ";
 				case err:
-					prefix = "[!] ";
-				break;
+					return "[!] ";
 				case inf:
-					prefix = "[?] ";
-				break;
+					return "[?] ";
 				case pos:
-					prefix = "[+] ";
-				break;
+					return "[+] ";
 				case neg:
-					prefix = "[-] ";
-				break;
+					return "[-] ";
 				case send:
-					prefix = "[>] ";
-				break;
+					return "[>] ";
 				case recv:
-					prefix = "[<] ";
-				break;
+					return "[<] ";
+				case none:
+				default:
+					return "";
 			}
-			return prefix;
 		}
 	public:
 		static void push( const e_msg type, const std::string& msg ) {
 			const std::string result =
 				get_prefix( type )
-								.append( msg )
-								.append( "\n" );
+								.append( msg );
 
 			Serial.print( result.c_str( ) );
 		}
