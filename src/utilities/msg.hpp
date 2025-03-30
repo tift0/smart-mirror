@@ -1,7 +1,3 @@
-//
-// created by tift0 on 15.03.2025.
-//
-
 #pragma once
 
 #include <HardwareSerial.h>
@@ -31,13 +27,22 @@ namespace msg {
 					return "";
 			}
 		}
+
 	public:
-		static void push( const e_msg type, const std::string& msg ) {
+		static void push( const e_msg type, const std::string& str ) {
 			const std::string result =
 				get_prefix( type )
-								.append( msg );
+								.append( str );
 
 			Serial.print( result.c_str( ) );
+		}
+
+		static void push( const e_msg type, const StringSumHelper& str ) {
+			push( type, std::string( str.c_str( ) ) );
+		}
+
+		static void push( const e_msg type, const char* str ) {
+			push( type, std::string( str ) );
 		}
 	};
 }
