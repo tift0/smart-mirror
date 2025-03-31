@@ -3,8 +3,10 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 
+#include "core/notify/notify.hpp"
+
 // https://www.youtube.com/shorts/hv7uPsPRqJ0
-constexpr char html_page[] PROGMEM = R"rawliteral(
+constexpr char html_page[ ] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,7 +35,7 @@ constexpr char html_page[] PROGMEM = R"rawliteral(
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('title').innerText = data.title;
-                    document.getElementById('message').innerText = data.msg;
+                    document.getElementById('message').innerText = data.message;
                     document.getElementById('timestamp').innerText = data.timestamp;
                 })
                 .catch(error => console.error('Error fetching data:', error));
@@ -45,7 +47,7 @@ constexpr char html_page[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-namespace backend {
+namespace core {
 	struct recv_data_t {
 	private:
 		String m_title{}, m_msg{}, m_app{}, m_timestamp{};
@@ -53,7 +55,7 @@ namespace backend {
 	public:
 		recv_data_t( ) = default;
 
-		/* title / msg / app / time */
+		/* title / message / app / time */
 		explicit recv_data_t( const std::tuple< String, String, String, String >& _tuple )
 			: m_title( std::get< 0 >( _tuple ) ),
 				m_msg( std::get< 1 >( _tuple ) ),
@@ -61,7 +63,7 @@ namespace backend {
 				m_timestamp( std::get< 3 >( _tuple ) ) {
 		}
 
-		/* title / msg / app / time */
+		/* title / message / app / time */
 		std::tuple< const String&, const String&, const String&, const String& > get( ) const noexcept {
 			return std::tie( m_title, m_msg, m_app, m_timestamp );
 		}
@@ -80,7 +82,7 @@ namespace backend {
 			}
 
 			/* no available data */
-			if ( !m_server.hasArg("plain" ) ) {
+			if ( !m_server.hasArg( "plain" ) ) {
 				m_server.send( 400, "application/json", R"({"error": "no data"})" );
 				return;
 			}
@@ -104,10 +106,13 @@ namespace backend {
 			);
 
 			{ /* debug info */
-				auto [ title, msg, app, time ] = m_recv_data.get( );
+				const auto [ title, msg, app, time ] = m_recv_data.get( );
+
+				g_notice_mngr.process( title, msg, time );
+
 				DBG( msg::inf, "new msg received\n" );
 				DBG( msg::recv, "title: " + title + "\n" );
-				DBG( msg::recv, "msg: " + msg + "\n" );
+				DBG( msg::recv, "message: " + msg + "\n" );
 				DBG( msg::recv, "app: " + app + "\n" );
 				DBG( msg::recv, "time: " + time + "\n" );
 			}
@@ -121,17 +126,17 @@ namespace backend {
 		}
 
 		void handle_data( ) {
-			auto [ title, msg, app, time ] = m_recv_data.get( );
+			const auto [ title, msg, app, time ] = m_recv_data.get( );
 
 			JsonDocument json{};
-			json[ "title" ] = title;
-			json[ "message" ] = msg;
-			json[ "application" ] = app;
-			json[ "timestamp" ] = time;
+			json[ "title" ]			= title;
+			json[ "message" ]		= msg;
+			json[ "application" ]	= app;
+			json[ "timestamp" ]		= time;
 
 			String str{};
-			serializeJson(json, str);
-			m_server.send(200, "application/json", str);
+			serializeJson( json, str );
+			m_server.send( 200, "application/json", str );
 		}
 
 	public:
@@ -165,4 +170,6 @@ namespace backend {
 			m_server.handleClient( );
 		}
 	};
+
+	c_wifi g_wifi( "espwfsm", "iforgotthepassword", 80 );
 }

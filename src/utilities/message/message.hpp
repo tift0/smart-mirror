@@ -5,7 +5,7 @@
 namespace msg {
 	enum e_msg { none, warn, err, inf, pos, neg, send, recv };
 
-	class c_msg {
+	class c_message {
 		static std::string get_prefix( const e_msg type ) {
 			switch ( type ) {
 				case warn:
@@ -47,4 +47,4 @@ namespace msg {
 	};
 }
 
-#define DBG( prefix, txt ) msg::c_msg::push( prefix, txt )
+#define DBG( prefix, txt ) msg::c_message::push( prefix, txt )

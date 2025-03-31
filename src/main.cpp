@@ -1,19 +1,20 @@
 #include <Arduino.h>
 
-#include "utilities/msg.hpp"
-#include "backend/renderer/renderer.hpp"
-#include "backend/wifi/wifi.hpp"
-
-using namespace backend;
-
-c_wifi wifi( "espwfsm", "iforgotthepassword", 80 );
+#include "utilities/message/message.hpp"
+#include "core/renderer/renderer.hpp"
+#include "core/notify/notify.hpp"
+#include "core/wifi/wifi.hpp"
 
 void setup( ) {
 	Serial.begin( 9600 );
 
-	wifi.process( );
+	core::g_renderer.process( );
+
+	core::g_wifi.process( );
 }
 
 void loop( ) {
-	wifi.handle( );
+	core::g_wifi.handle( );
+
+	core::g_notice_mngr.handle( );
 }
