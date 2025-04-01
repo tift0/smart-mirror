@@ -8,6 +8,7 @@
  *		> design
  *		> implementation of renderer
  *		> smooth fade-out after 15 seconds
+ *		> limit - 3-4
  */
 namespace core {
 	/* it's just a PoC, it's not the final version */

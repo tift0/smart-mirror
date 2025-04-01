@@ -109,12 +109,6 @@ namespace core {
 				const auto [ title, msg, app, time ] = m_recv_data.get( );
 
 				g_notice_mngr.process( title, msg, time );
-
-				DBG( msg::inf, "new msg received\n" );
-				DBG( msg::recv, "title: " + title + "\n" );
-				DBG( msg::recv, "message: " + msg + "\n" );
-				DBG( msg::recv, "app: " + app + "\n" );
-				DBG( msg::recv, "time: " + time + "\n" );
 			}
 
 			const auto response = R"({"status": "success"})";
