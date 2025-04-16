@@ -7,13 +7,15 @@ namespace math {
 		_ty _x{}, _y{};
 
 	public:
-		vec2_t( ) = default;
-		vec2_t( _ty x, _ty y ) : _x(x), _y(y) {};
+		vec2_t() = default;
 
-		_ty x( ) { return _x; }
-		_ty y( ) { return _y; }
+		vec2_t(_ty x, _ty y) : _x(x), _y(y) {
+		}
 
-		bool operator == ( const vec2_t &other ) const { return _x == other._x && _y == other._y; }
-		bool operator != ( const vec2_t &other ) const { return !( *this == other ); }
+		_ty x() { return _x; }
+		_ty y() { return _y; }
+
+		bool operator ==(const vec2_t& other) const { return _x == other._x && _y == other._y; }
+		bool operator !=(const vec2_t& other) const { return !(*this == other); }
 	};
 }
