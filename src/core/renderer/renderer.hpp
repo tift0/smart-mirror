@@ -2,26 +2,23 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
+#include <sdk/singleton/singleton.hpp>
 
-#include "utilities/math/math.hpp"
+#include "sdk/math/math.hpp"
 
 /*
  * @todo:
  *		> https://github.com/adafruit/Adafruit-ST7735-Library
- *		> align flag
+ *		> text align
  */
 namespace core {
 	enum e_align { none, left, right, center };
 
-	class c_renderer {
+	class c_renderer : public singleton_t< c_renderer > {
 	private:
-		Adafruit_ST7735 m_display;
+		Adafruit_ST7735 m_display{ 5, 4, 2 };
 
 	public:
-		explicit c_renderer( const std::int8_t cs_pin, const std::int8_t data_cmd_pin, const std::int8_t rst_pin )
-			: m_display( cs_pin, data_cmd_pin, rst_pin ) {
-		}
-
 		void process( ) {
 			m_display.initR( INITR_BLACKTAB );
 			m_display.fillScreen( ST77XX_BLACK );
@@ -43,5 +40,5 @@ namespace core {
 		}
 	};
 
-	c_renderer g_renderer( 5, 4, 2 );
+	auto& g_renderer = c_renderer::instance( );
 };

@@ -4,9 +4,10 @@
 #include <WebServer.h>
 
 #include "core/notify/notify.hpp"
+#include "core/cfg/cfg.hpp"
 
 // https://www.youtube.com/shorts/hv7uPsPRqJ0
-constexpr char html_page[ ] PROGMEM = R"rawliteral(
+constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,117 +54,176 @@ namespace core {
 		String m_title{}, m_msg{}, m_app{}, m_timestamp{};
 
 	public:
-		recv_data_t( ) = default;
+		recv_data_t() = default;
 
 		/* title / message / app / time */
-		explicit recv_data_t( const std::tuple< String, String, String, String >& _tuple )
-			: m_title( std::get< 0 >( _tuple ) ),
-				m_msg( std::get< 1 >( _tuple ) ),
-				m_app( std::get< 2 >( _tuple ) ),
-				m_timestamp( std::get< 3 >( _tuple ) ) {
+		explicit recv_data_t(const std::tuple< String, String, String, String >& _tuple)
+			: m_title(std::get< 0 >(_tuple)),
+			  m_msg(std::get< 1 >(_tuple)),
+			  m_app(std::get< 2 >(_tuple)),
+			  m_timestamp(std::get< 3 >(_tuple)) {
 		}
 
 		/* title / message / app / time */
-		std::tuple< const String&, const String&, const String&, const String& > get( ) const noexcept {
-			return std::tie( m_title, m_msg, m_app, m_timestamp );
+		std::tuple< const String&, const String&, const String&, const String& > get() const noexcept {
+			return std::tie(m_title, m_msg, m_app, m_timestamp);
 		}
 	} m_recv_data{};
 
-	class c_wifi {
+	class c_wifi : public singleton_t< c_wifi > {
 	private:
-		std::string m_ssid{}, m_password{};
-		WebServer   m_server;
+		static constexpr std::uint8_t	k_max_reconnect_attempts = 5u;
+		static constexpr std::uint16_t	k_def_port = 80u;
 
-		void handle_post_request( ) {
+		String			m_ssid{}, m_password{};
+		std::uint8_t	m_reconnect_attempts{};
+
+		std::unique_ptr< WebServer > m_server;
+
+	private:
+		void handle_post_request() {
 			/* wrong method */
-			if ( m_server.method( ) != HTTP_POST ) {
-				m_server.send( 405, "application/json", R"({"error": "method not allowed"})" );
+			if (m_server->method() != HTTP_POST) {
+				m_server->send(405, "application/json", R"({"error": "method not allowed"})");
 				return;
 			}
 
 			/* no available data */
-			if ( !m_server.hasArg( "plain" ) ) {
-				m_server.send( 400, "application/json", R"({"error": "no data"})" );
+			if (!m_server->hasArg("plain")) {
+				m_server->send(400, "application/json", R"({"error": "no data"})");
 				return;
 			}
 
-			JsonDocument	json{};
-			String			body = m_server.arg( "plain" );
+			JsonDocument json{};
+			String body = m_server->arg("plain");
 			/* invalid json */
-			if ( auto error = deserializeJson( json, body ) ) {
-				m_server.send( 400, "application/json", R"({"error": "invalid json"})" );
+			if (auto error = deserializeJson(json, body)) {
+				m_server->send(400, "application/json", R"({"error": "invalid json"})");
 				return;
 			}
 
 			/* fill struct data */
 			m_recv_data =
-				recv_data_t( std::make_tuple(
-					json[ "title" ].as< String >( ),
-					json[ "message" ].as< String >( ),
-					json[ "application" ].as< String >( ),
-					json[ "timestamp" ].as< String >( )
-				)
-			);
+				recv_data_t(std::make_tuple(
+						json[ "title" ].as< String >(),
+						json[ "message" ].as< String >(),
+						json[ "application" ].as< String >(),
+						json[ "timestamp" ].as< String >()
+					)
+				);
 
-			{ /* debug info */
-				const auto [ title, msg, app, time ] = m_recv_data.get( );
+			{
+				const auto [ title, msg, app, time ] = m_recv_data.get();
 
-				g_notice_mngr.process( title, msg, time );
+				g_notice_mngr.process(title, msg, time);
 			}
 
 			const auto response = R"({"status": "success"})";
-			m_server.send( 200, "application/json", response );
+			m_server->send(200, "application/json", response);
 		}
 
-		void handle_root( ) {
-			m_server.send( 200, "text/html", html_page );
+		void handle_root() const {
+			m_server->send(200, "text/html", g_html_page);
 		}
 
-		void handle_data( ) {
-			const auto [ title, msg, app, time ] = m_recv_data.get( );
+		void handle_data() {
+			const auto [ title, msg, app, time ] = m_recv_data.get();
 
 			JsonDocument json{};
-			json[ "title" ]			= title;
-			json[ "message" ]		= msg;
-			json[ "application" ]	= app;
-			json[ "timestamp" ]		= time;
+			json[ "title" ] = title;
+			json[ "message" ] = msg;
+			json[ "application" ] = app;
+			json[ "timestamp" ] = time;
 
 			String str{};
-			serializeJson( json, str );
-			m_server.send( 200, "application/json", str );
+			serializeJson(json, str);
+			m_server->send(200, "application/json", str);
+		}
+
+		void reg_http_handlers() {
+			m_server->on(
+				"/", [ & ] { handle_root(); }
+			);
+
+			m_server->on(
+				"/data", [ & ] { handle_data(); }
+			);
+
+			m_server->on(
+				"/post", HTTP_POST, [ & ] { handle_post_request(); }
+			);
+
+			m_server->onNotFound(
+				[ & ] {
+					m_server->send(404, "text/plain", "not found");
+				}
+			);
+		}
+
+		void connect() {
+			WiFi.begin(m_ssid.c_str(), m_password.c_str());
+
+			DBG(msg::inf, "connecting to wifi: ");
+			Serial.println(m_ssid.c_str());
+		}
+
+		void reconnect() {
+			if (m_reconnect_attempts >= k_max_reconnect_attempts) {
+				Serial.println("max reconnect attempts reached");
+				return;
+			}
+
+			m_reconnect_attempts++;
+			Serial.printf(
+				"reconnecting to wifi (attempt %d/%d)...\n", m_reconnect_attempts, k_max_reconnect_attempts
+			);
+
+			connect();
 		}
 
 	public:
-		explicit c_wifi( std::string ssid, std::string password, const int port )
-			: m_ssid( std::move( ssid ) ), m_password( std::move( password ) ), m_server( port ) {
+		c_wifi()
+			: m_server(new WebServer(k_def_port)) {
 		}
 
-		void process( ) {
-			WiFi.softAP( m_ssid.c_str( ), m_password.c_str( ) );
-
-			Serial.println( );
-			Serial.print( "ip address: " );
-			Serial.println( WiFi.softAPIP( ) );
-
-			m_server.on(
-				"/", [ & ] { handle_root( ); }
-			);
-
-			m_server.on(
-				"/data", [ & ] { handle_data( ); }
-			);
-
-			m_server.on(
-				"/post", HTTP_POST, [ & ] { handle_post_request( ); }
-			);
-
-			m_server.begin( );
+		void process() {
+			setup_observers();
+			setup_wifi();
+			setup_server();
 		}
 
-		void handle( ) {
-			m_server.handleClient( );
+		void setup_observers() {
+			g_cfg_mngr.add_observer("wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
+				m_ssid = value.as< String >();
+				reconnect();
+			});
+
+			g_cfg_mngr.add_observer("wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
+				m_password = value.as< String >();
+				reconnect();
+			});
+		}
+
+		void setup_wifi() {
+			WiFi.softAP(
+				g_cfg_mngr.get("wifi_ssid").as< String >(),
+				g_cfg_mngr.get("wifi_password").as< String >()
+			);
+
+			DBG(msg::inf, "ip address: ");
+			Serial.println(WiFi.softAPIP());
+		}
+
+		void setup_server() {
+			m_server->begin();
+			reg_http_handlers();
+		}
+
+		void handle() {
+			if (m_server)
+				m_server->handleClient();
 		}
 	};
 
-	c_wifi g_wifi( "espwfsm", "iforgotthepassword", 80 );
+	auto& g_wifi = c_wifi::instance();
 }
