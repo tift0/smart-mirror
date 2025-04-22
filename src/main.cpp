@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include "sdk/message/message.hpp"
+#include "sdk/msg/msg.hpp"
 #include "core/renderer/renderer.hpp"
 #include "core/notify/notify.hpp"
 #include "core/wifi/wifi.hpp"
@@ -18,15 +18,14 @@ void setup() {
 }
 
 void loop() {
-	// @todo: g_cfg_mngr->handle()
-	/*static std::uint32_t    last_save_time = 0u;
+	static std::uint32_t last_save_time = 0u;
 	constexpr std::uint32_t save_interval = 60000u; // once per minute
 
-	const std::uint32_t cur_time = millis( );
-	if ( cur_time - last_save_time >= save_interval ) {
-		//core::g_cfg_mngr.save_cfg( );
+	const std::uint32_t cur_time = millis();
+	if (cur_time - last_save_time >= save_interval) {
+		core::g_cfg_mngr.save_file();
 		last_save_time = cur_time;
-	}*/
+	}
 
 	core::g_wifi.handle();
 

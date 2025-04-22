@@ -1,6 +1,6 @@
 #pragma once
 
-// so primitive
+// primitive
 namespace math {
 	template < typename _ty = std::uint16_t >
 	struct vec2_t {

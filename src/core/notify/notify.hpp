@@ -9,23 +9,23 @@ namespace core {
 	class c_notice_mngr : public singleton_t< c_notice_mngr > {
 	private:
 		struct notice_data_t {
-			String m_title{}, m_msg{}, m_time{};
-			std::chrono::steady_clock::time_point m_creation_time{};
-			bool m_is_active{};
+			String									m_title{}, m_msg{}, m_app{};
+			std::chrono::steady_clock::time_point	m_creation_time{};
+			bool									m_is_active{};
 
 			notice_data_t() = default;
 
-			notice_data_t(String title, String msg, String time,
+			notice_data_t(String title, String msg, String app,
 			              const std::chrono::steady_clock::time_point creation_time,
 			              const bool is_active = true) noexcept
-				: m_title(std::move(title)), m_msg(std::move(msg)), m_time(std::move(time)),
+				: m_title(std::move(title)), m_msg(std::move(msg)), m_app(std::move(app)),
 				  m_creation_time(creation_time), m_is_active(is_active) {
 			}
 
 			std::tuple
 				< const std::chrono::time_point< std::chrono::_V2::steady_clock >&, const String&, const String&, const String& >
 			tie() const noexcept {
-				return std::tie(m_creation_time, m_title, m_msg, m_time);
+				return std::tie(m_creation_time, m_title, m_msg, m_app);
 			}
 
 			bool operator<(const notice_data_t& other) const noexcept {
@@ -33,18 +33,17 @@ namespace core {
 			}
 		};
 
-		constexpr static std::size_t	k_queue_size = 10;
-		constexpr static std::size_t	k_max_notices = 3;
-		constexpr static std::uint16_t	k_max_time = 15; // in seconds
+		constexpr static std::size_t	k_queue_size = 10u;
+		constexpr static std::size_t	k_max_notices = 3u;
+		constexpr static std::uint16_t	k_max_time = 15u; // in seconds
 		constexpr static std::size_t	k_invalid_index = std::numeric_limits< std::size_t >::max();
 
-		std::mutex m_mutex{};
+		std::mutex 					m_mutex{};
 		std::queue< notice_data_t > m_queue{};
 
-		std::array< notice_data_t, k_max_notices > m_active_notices{};
-		std::vector< notice_data_t > m_history_notices{};
-
-		std::size_t m_active_notice_cnt{};
+		std::array< notice_data_t, k_max_notices >	m_active_notices{};
+		std::vector< notice_data_t >				m_history_notices{};
+		std::size_t									m_active_notice_cnt{};
 
 	private:
 		static std::chrono::steady_clock::time_point _millis() {
@@ -67,7 +66,7 @@ namespace core {
 		}
 
 		std::size_t find_free_slot() const noexcept {
-			for (std::size_t i = 0; i < k_max_notices; ++i)
+			for (std::size_t i{}; i < k_max_notices; i++)
 				if (!m_active_notices[ i ].m_is_active)
 					return i;
 
@@ -81,7 +80,7 @@ namespace core {
 			std::size_t oldest_idx = k_invalid_index;
 			auto oldest_time = std::chrono::steady_clock::time_point::max();
 
-			for (std::size_t i = 0; i < k_max_notices; ++i) {
+			for (std::size_t i{}; i < k_max_notices; i++) {
 				const auto& notice = m_active_notices[ i ];
 				if (notice.m_is_active && notice.m_creation_time < oldest_time) {
 					oldest_time = notice.m_creation_time;
@@ -97,12 +96,12 @@ namespace core {
 			m_history_notices.reserve(50);
 		}
 
-		bool process(const String& title, const String& msg, const String& time) {
+		bool process(const String& title, const String& msg, const String& app) {
 			Serial.printf(
-				"processing new notice: title='%s', msg='%s', time='%s'\n", title.c_str(), msg.c_str(), time.c_str()
+				"processing new notice: title='%s', msg='%s', app='%s'\n", title.c_str(), msg.c_str(), app.c_str()
 			);
 
-			notice_data_t notice(title, msg, time, _millis(), true);
+			notice_data_t notice(title, msg, app, _millis(), true);
 
 			if (m_queue.size() < k_queue_size) {
 				m_queue.push(std::move(notice));
@@ -118,8 +117,8 @@ namespace core {
 		void handle() {
 			cleanup_old_notices();
 
-			notice_data_t notice{};
 			{
+				notice_data_t notice{};
 				std::lock_guard< std::mutex > lock(m_mutex);
 
 				while (!m_queue.empty()) {
@@ -146,7 +145,7 @@ namespace core {
 
 		[[nodiscard]] std::vector< notice_data_t > get_active_notices() {
 			std::lock_guard< std::mutex > lock(m_mutex);
-			std::vector< notice_data_t > result;
+			std::vector< notice_data_t > result{};
 			result.reserve(k_max_notices);
 
 			for (const auto& notice : m_active_notices)

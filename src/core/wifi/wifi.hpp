@@ -7,7 +7,7 @@
 #include "core/cfg/cfg.hpp"
 
 // https://www.youtube.com/shorts/hv7uPsPRqJ0
-constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
+constexpr char g_html_page[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,7 +19,7 @@ constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
         .container { max-width: 400px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
         h2 { color: #007bff; }
         p { font-size: 20px; }
-        .timestamp { font-size: 14px; color: gray; }
+        .application { font-size: 14px; color: gray; }
     </style>
 </head>
 <body>
@@ -27,7 +27,7 @@ constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
         <h2>data</h2>
         <p><strong>title:</strong> <span id="title">wait...</span></p>
         <p><strong>message:</strong> <span id="message">wait...</span></p>
-        <p class="timestamp">time: <span id="timestamp">-</span></p>
+        <p class="application">application: <span id="application">-</span></p>
     </div>
 
     <script>
@@ -37,7 +37,7 @@ constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
                 .then(data => {
                     document.getElementById('title').innerText = data.title;
                     document.getElementById('message').innerText = data.message;
-                    document.getElementById('timestamp').innerText = data.timestamp;
+                    document.getElementById('application').innerText = data.application;
                 })
                 .catch(error => console.error('Error fetching data:', error));
         }
@@ -51,22 +51,21 @@ constexpr char g_html_page[ ] PROGMEM = R"rawliteral(
 namespace core {
 	struct recv_data_t {
 	private:
-		String m_title{}, m_msg{}, m_app{}, m_timestamp{};
+		String m_title{}, m_msg{}, m_app{};
 
 	public:
 		recv_data_t() = default;
 
-		/* title / message / app / time */
-		explicit recv_data_t(const std::tuple< String, String, String, String >& _tuple)
+		/* title / message / app  */
+		explicit recv_data_t(const std::tuple< String, String, String >& _tuple)
 			: m_title(std::get< 0 >(_tuple)),
 			  m_msg(std::get< 1 >(_tuple)),
-			  m_app(std::get< 2 >(_tuple)),
-			  m_timestamp(std::get< 3 >(_tuple)) {
+			  m_app(std::get< 2 >(_tuple)) {
 		}
 
 		/* title / message / app / time */
-		std::tuple< const String&, const String&, const String&, const String& > get() const noexcept {
-			return std::tie(m_title, m_msg, m_app, m_timestamp);
+		std::tuple< const String&, const String&, const String& > get() const noexcept {
+			return std::tie(m_title, m_msg, m_app);
 		}
 	} m_recv_data{};
 
@@ -94,7 +93,7 @@ namespace core {
 				return;
 			}
 
-			JsonDocument json{};
+			ArduinoJson::JsonDocument json{};
 			String body = m_server->arg("plain");
 			/* invalid json */
 			if (auto error = deserializeJson(json, body)) {
@@ -107,15 +106,14 @@ namespace core {
 				recv_data_t(std::make_tuple(
 						json[ "title" ].as< String >(),
 						json[ "message" ].as< String >(),
-						json[ "application" ].as< String >(),
-						json[ "timestamp" ].as< String >()
+						json[ "application" ].as< String >()
 					)
 				);
 
 			{
-				const auto [ title, msg, app, time ] = m_recv_data.get();
+				const auto [ title, msg, app ] = m_recv_data.get();
 
-				g_notice_mngr.process(title, msg, time);
+				g_notice_mngr.process(title, msg, app);
 			}
 
 			const auto response = R"({"status": "success"})";
@@ -127,13 +125,12 @@ namespace core {
 		}
 
 		void handle_data() {
-			const auto [ title, msg, app, time ] = m_recv_data.get();
+			const auto [ title, msg, app ] = m_recv_data.get();
 
-			JsonDocument json{};
+			ArduinoJson::JsonDocument json{};
 			json[ "title" ] = title;
 			json[ "message" ] = msg;
 			json[ "application" ] = app;
-			json[ "timestamp" ] = time;
 
 			String str{};
 			serializeJson(json, str);
@@ -160,7 +157,7 @@ namespace core {
 			);
 		}
 
-		void connect() {
+		void connect() const {
 			WiFi.begin(m_ssid.c_str(), m_password.c_str());
 
 			DBG(msg::inf, "connecting to wifi: ");
@@ -219,7 +216,7 @@ namespace core {
 			reg_http_handlers();
 		}
 
-		void handle() {
+		void handle() const {
 			if (m_server)
 				m_server->handleClient();
 		}

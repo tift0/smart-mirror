@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include <unordered_map>
 
 #include <ArduinoJson.h>
@@ -14,38 +13,38 @@
 namespace core {
 	class c_cfg_manager : public singleton_t< c_cfg_manager > {
 		using cfg_key = std::string;
-		using json_value = JsonVariant;
+		using json_value = ArduinoJson::JsonVariant;
 		using change_callback = std::function< void(const cfg_key&, const json_value&) >;
 
 	private:
-		constexpr static auto k_def_file = "/def_cfg.json", k_user_file = "/user_cfg.json";
-		constexpr static std::size_t k_capacity = 4096u;
+		constexpr static auto			k_def_file = "/def_cfg.json",
+										k_user_file = "/user_cfg.json";
+		constexpr static std::size_t	k_capacity = 4096u;
 
-		StaticJsonDocument< k_capacity > m_def_cfg{}, m_user_cfg{};
+		ArduinoJson::StaticJsonDocument< k_capacity > m_def_cfg{}, m_user_cfg{};
 
 		bool m_is_edited{};
 
 		std::unordered_map< cfg_key, std::vector< change_callback > > m_observers{};
 
 	public:
-		void process() {
+		[[noreturn]] void process() {
 			if (!LITTLEFS.begin(false)) {
-				Serial.println("[!] littlefs mount failed, formatting...");
+				DBG(msg::warn, "littlefs mount failed, formatting...\n");
 				if (LITTLEFS.format()) {
-					Serial.println("[+] format successful, retrying mount...");
+					DBG(msg::pos, "format successful, retrying mount...\n");
 					if (!LITTLEFS.begin(false)) {
-						Serial.println("[!] mount still failed after format");
+						DBG(msg::warn, "mount still failed after format\n");
 						while (true);
 					}
 				}
 				else {
-					Serial.println("[!] format failed");
+					DBG(msg::neg, "format failed\n");
 					while (true);
 				}
 			}
-			else {
-				Serial.println("[+] littlefs mounted successfully");
-			}
+			else
+				DBG(msg::pos, "littlefs mounted successfully\n");
 
 
 			load_def_file();
@@ -81,6 +80,31 @@ namespace core {
 			m_observers[ key ].push_back(std::move(callback));
 		}
 
+		bool save_file() {
+			if (!m_is_edited)
+				return true;
+
+			File file = LITTLEFS.open(k_user_file, FILE_WRITE);
+			if (!file) {
+				DBG(msg::err, "can't open user config\n");
+				return false;
+			}
+
+			ArduinoJson::StaticJsonDocument< k_capacity > json{};
+			for (JsonPair kv : m_user_cfg.as< JsonObject >())
+				json[ kv.key() ] = kv.value();
+
+			if (serializeJson(json, file) == 0) {
+				DBG(msg::err, "failed to write json to file\n");
+				file.close();
+				return false;
+			}
+
+			file.close();
+			m_is_edited = false;
+			return true;
+		}
+
 	private:
 		bool load_user_file() {
 			if (!LITTLEFS.exists(k_user_file)) {
@@ -94,7 +118,7 @@ namespace core {
 				return false;
 			}
 
-			StaticJsonDocument< k_capacity > json{};
+			ArduinoJson::StaticJsonDocument< k_capacity > json{};
 			if (const auto error = deserializeJson(json, file)) {
 				DBG(msg::err, "failed to parse user config, error:\n");
 				Serial.println(error.c_str());
@@ -115,31 +139,6 @@ namespace core {
 
 			m_def_cfg[ "notification_timeout" ] = 15;
 			m_def_cfg[ "notification_max_count" ] = 3;
-		}
-
-		bool save_file() {
-			if (!m_is_edited)
-				return true;
-
-			File file = LITTLEFS.open(k_user_file, FILE_WRITE);
-			if (!file) {
-				DBG(msg::err, "can't open user config\n");
-				return false;
-			}
-
-			StaticJsonDocument< k_capacity > json{};
-			for (JsonPair kv : m_user_cfg.as< JsonObject >())
-				json[ kv.key() ] = kv.value();
-
-			if (serializeJson(json, file) == 0) {
-				DBG(msg::err, "failed to write json to file\n");
-				file.close();
-				return false;
-			}
-
-			file.close();
-			m_is_edited = false;
-			return true;
 		}
 
 		void apply_def_file() {
