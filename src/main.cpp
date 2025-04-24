@@ -12,7 +12,7 @@ void setup() {
 
 	core::g_cfg_mngr.process();
 
-	//core::g_renderer.process( );
+	core::g_renderer.process( );
 
 	core::g_wifi.process();
 }
