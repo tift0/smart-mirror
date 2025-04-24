@@ -137,6 +137,11 @@ namespace core {
 			m_def_cfg[ "display_brightness" ] = 100;
 			m_def_cfg[ "display_rotation" ] = 0;
 
+			m_def_cfg[ "led_color_r" ] = 255;
+			m_def_cfg[ "led_color_g" ] = 255;
+			m_def_cfg[ "led_color_b" ] = 255;
+			m_def_cfg[ "led_color_a" ] = 255;
+
 			m_def_cfg[ "notification_timeout" ] = 15;
 			m_def_cfg[ "notification_max_count" ] = 3;
 		}

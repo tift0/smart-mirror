@@ -96,7 +96,7 @@ namespace core {
 			ArduinoJson::JsonDocument json{};
 			String body = m_server->arg("plain");
 			/* invalid json */
-			if (auto error = deserializeJson(json, body)) {
+			if (const auto error = deserializeJson(json, body)) {
 				m_server->send(400, "application/json", R"({"error": "invalid json"})");
 				return;
 			}
