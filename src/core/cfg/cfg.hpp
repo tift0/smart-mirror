@@ -135,15 +135,15 @@ namespace core {
 			m_def_cfg[ "wifi_password" ] = "iforgotthepassword";
 
 			m_def_cfg[ "display_brightness" ] = 100;
-			m_def_cfg[ "display_rotation" ] = 0;
+			m_def_cfg[ "display_rot" ] = 0;
 
-			m_def_cfg[ "led_color_r" ] = 255;
-			m_def_cfg[ "led_color_g" ] = 255;
-			m_def_cfg[ "led_color_b" ] = 255;
-			m_def_cfg[ "led_color_a" ] = 255;
+			m_def_cfg[ "led_clr_r" ] = 255.f;
+			m_def_cfg[ "led_clr_g" ] = 255.f;
+			m_def_cfg[ "led_clr_b" ] = 255.f;
+			m_def_cfg[ "led_clr_a" ] = 1023;
 
-			m_def_cfg[ "notification_timeout" ] = 15;
-			m_def_cfg[ "notification_max_count" ] = 3;
+			m_def_cfg[ "notice_timeout" ] = 15;
+			m_def_cfg[ "notice_max_cnt" ] = 3;
 		}
 
 		void apply_def_file() {

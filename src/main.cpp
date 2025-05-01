@@ -3,6 +3,7 @@
 #include "sdk/msg/msg.hpp"
 #include "core/renderer/renderer.hpp"
 #include "core/notify/notify.hpp"
+#include "core/led/led_mngr.hpp"
 #include "core/wifi/wifi.hpp"
 #include "core/cfg/cfg.hpp"
 
@@ -10,9 +11,11 @@ void setup() {
 	Serial.begin(9600);
 	Serial.println();
 
+	core::g_led_mngr.process();
+
 	core::g_cfg_mngr.process();
 
-	core::g_renderer.process( );
+	core::g_renderer.process();
 
 	core::g_wifi.process();
 }
@@ -26,6 +29,8 @@ void loop() {
 		core::g_cfg_mngr.save_file();
 		last_save_time = cur_time;
 	}
+
+	core::g_led_mngr.handle();
 
 	core::g_wifi.handle();
 

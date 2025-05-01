@@ -190,15 +190,19 @@ namespace core {
 		}
 
 		void setup_observers() {
-			g_cfg_mngr.add_observer("wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
-				m_ssid = value.as< String >();
-				reconnect();
-			});
+			g_cfg_mngr.add_observer(
+				"wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
+					m_ssid = value.as< String >();
+					reconnect();
+				}
+			);
 
-			g_cfg_mngr.add_observer("wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
-				m_password = value.as< String >();
-				reconnect();
-			});
+			g_cfg_mngr.add_observer(
+				"wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
+					m_password = value.as< String >();
+					reconnect();
+				}
+			);
 		}
 
 		void setup_wifi() {
@@ -213,6 +217,7 @@ namespace core {
 
 		void setup_server() {
 			m_server->begin();
+
 			reg_http_handlers();
 		}
 
