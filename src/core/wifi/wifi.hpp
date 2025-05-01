@@ -3,7 +3,8 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 
-#include "core/notify/notify.hpp"
+#include "core/notice/notice.hpp"
+
 #include "core/cfg/cfg.hpp"
 
 // https://www.youtube.com/shorts/hv7uPsPRqJ0

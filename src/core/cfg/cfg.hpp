@@ -1,10 +1,13 @@
 #pragma once
 
 #include <unordered_map>
+#include <vector>
 
 #include <ArduinoJson.h>
-#include <FS.h>
 #include <LittleFS.h>
+#include <FS.h>
+
+#include "sdk/singleton/singleton.hpp"
 
 /*
  * @todo:
@@ -35,17 +38,16 @@ namespace core {
 					DBG(msg::pos, "format successful, retrying mount...\n");
 					if (!LITTLEFS.begin(false)) {
 						DBG(msg::warn, "mount still failed after format\n");
-						while (true);
+						esp_restart();
 					}
 				}
 				else {
 					DBG(msg::neg, "format failed\n");
-					while (true);
+					esp_restart();
 				}
 			}
 			else
 				DBG(msg::pos, "littlefs mounted successfully\n");
-
 
 			load_def_file();
 

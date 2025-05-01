@@ -47,7 +47,7 @@ namespace core {
 			pinMode(blue, OUTPUT);
 		}
 
-		void handle() {
+		void handle() const {
 			// the analogWrite has a limit of acceptable values [0-1023] => we should clamp the values b4 writing them
 			const int	vis_r = 1023 * m_clr.r(),
 						vis_g = 1023 * m_clr.g(),

@@ -1,11 +1,10 @@
 #include <Arduino.h>
 
 #include "sdk/msg/msg.hpp"
-#include "core/renderer/renderer.hpp"
-#include "core/notify/notify.hpp"
-#include "core/led/led_mngr.hpp"
-#include "core/wifi/wifi.hpp"
-#include "core/cfg/cfg.hpp"
+
+#include "core/include.hpp"
+
+#include "view/include.hpp"
 
 void setup() {
 	Serial.begin(9600);
@@ -18,6 +17,8 @@ void setup() {
 	core::g_renderer.process();
 
 	core::g_wifi.process();
+
+	view::g_battery.process();
 }
 
 void loop() {
@@ -35,4 +36,6 @@ void loop() {
 	core::g_wifi.handle();
 
 	core::g_notice_mngr.handle();
+
+	view::g_battery.handle();
 }

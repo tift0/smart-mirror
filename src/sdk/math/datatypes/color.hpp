@@ -7,9 +7,9 @@ namespace math {
 	private:
 		union {
 			struct {
-				std::uint8_t m_r{},
-				             m_g{},
-				             m_b{};
+				std::uint8_t m_r,
+				             m_g,
+				             m_b;
 			};
 
 			std::uint32_t m_rgb{};
