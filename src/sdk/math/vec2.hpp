@@ -2,7 +2,7 @@
 
 // primitive
 namespace math {
-	template < typename _ty = std::uint16_t >
+	template < typename _ty >
 	struct vec2_t {
 		_ty _x{}, _y{};
 

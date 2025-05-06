@@ -14,11 +14,11 @@ namespace core {
 		Adafruit_ST7735 m_display{ 5, 4, 2 };
 
 		math::vec2_t< float > measure_text(const std::string& text) {
-			std::uint16_t w{}, h{};
+			std::uint16_t width{}, height{};
 
-			m_display.getTextBounds(text.c_str(), 0, 0, nullptr, nullptr, &w, &h);
+			m_display.getTextBounds(text.c_str(), 0, 0, nullptr, nullptr, &width, &height);
 
-			return { static_cast< float >(w), static_cast< float >(h) };
+			return { static_cast< float >(width), static_cast< float >(height) };
 		}
 
 		math::vec2_t< std::int16_t > adjust_position(
@@ -43,15 +43,21 @@ namespace core {
 			m_display.fillScreen(ST77XX_BLACK);
 		}
 
-		void draw_line(math::vec2_t< std::int16_t > start, math::vec2_t< std::int16_t > end) {
+		// p100
+		bool is_valid() const { return m_display ? true : false; }
+
+		template < typename _ty = std::uint16_t >
+		void draw_line(math::vec2_t< _ty > start, math::vec2_t< _ty > end) {
 			m_display.drawLine(start.x(), start.y(), end.x(), end.y(), ST77XX_WHITE);
 		}
 
-		void draw_rect(math::vec2_t< std::int16_t > pos, math::vec2_t< std::int16_t > size) {
+		template < typename _ty = std::uint16_t >
+		void draw_rect(math::vec2_t< _ty > pos, math::vec2_t< _ty > size) {
 			m_display.drawRect(pos.x(), pos.y(), size.x(), size.y(), ST77XX_WHITE);
 		}
 
-		void draw_text(math::vec2_t< std::int16_t > pos, const std::string& str, const e_flags flags) {
+		template < typename _ty = std::uint16_t >
+		void draw_text(math::vec2_t< _ty > pos, const std::string& str, const e_flags flags = e_flags::none) {
 			const auto size = measure_text(str);
 
 			pos = adjust_position(pos, size, flags);
@@ -62,10 +68,19 @@ namespace core {
 			m_display.print(str.c_str());
 		}
 
+		template < typename _ty = std::uint16_t >
 		void draw_bitmap(
-			math::vec2_t< std::int16_t > pos, const uint8_t* bitmap_data, const uint16_t width, const uint16_t height
+			math::vec2_t< _ty > pos, const uint8_t* bitmap_data, const uint16_t width, const uint16_t height
 		) {
 			m_display.drawBitmap(pos.x(), pos.y(), bitmap_data, width, height, ST77XX_WHITE);
+		}
+
+		template < typename _ty = std::uint16_t >
+		math::vec2_t< _ty >& screen_size() {
+			const auto	width = m_display.width(),
+						height = m_display.height();
+
+			return { width, height };
 		}
 	};
 
