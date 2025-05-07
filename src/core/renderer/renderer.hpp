@@ -10,8 +10,6 @@ namespace core {
 	enum e_flags { none, center, center_y, right };
 
 	class c_renderer : public singleton_t< c_renderer > {
-		using renderer_callback = std::function< void(void) >;
-
 	private:
 		enum e_pin { e_cs = 5, e_dc = 4, e_rst = 2 };
 
@@ -84,7 +82,7 @@ namespace core {
 		template < typename _ty = std::uint16_t >
 		math::vec2_t< _ty > screen_size() {
 			const auto	width = m_display.width(),
-						height = m_display.height();
+					height = m_display.height();
 
 			return { width, height };
 		}
