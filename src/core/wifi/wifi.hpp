@@ -94,8 +94,13 @@ namespace core {
 				return;
 			}
 
-			ArduinoJson::JsonDocument json{};
-			String body = m_server->arg("plain");
+			ArduinoJson::JsonDocument json;
+			auto body = m_server->arg("plain");
+			if (body.length() > 512) {
+				m_server->send(400, "application/json", R"({"error": "data too large"})");
+				return;
+			}
+
 			/* invalid json */
 			if (const auto error = deserializeJson(json, body)) {
 				m_server->send(400, "application/json", R"({"error": "invalid json"})");
@@ -103,22 +108,25 @@ namespace core {
 			}
 
 			/* fill struct data */
-			m_recv_data =
-				recv_data_t(std::make_tuple(
-						json[ "title" ].as< String >(),
-						json[ "message" ].as< String >(),
-						json[ "application" ].as< String >()
+			try {
+				m_recv_data = recv_data_t(
+					std::make_tuple(
+						json["title"].as< String >(),
+						json["message"].as< String >(),
+						json["application"].as< String >()
 					)
 				);
 
-			{
-				const auto [ title, msg, app ] = m_recv_data.get();
+				{
+					const auto [ title, msg, app ] = m_recv_data.get();
+					g_notice_mngr.process(title, msg, app);
+				}
 
-				g_notice_mngr.process(title, msg, app);
+				const auto response = R"({"status": "success"})";
+				m_server->send(200, "application/json", response);
+			} catch (const std::exception& e) {
+				m_server->send(500, "application/json", R"({"error": "internal server error"})");
 			}
-
-			const auto response = R"({"status": "success"})";
-			m_server->send(200, "application/json", response);
 		}
 
 		void handle_root() const {
@@ -128,13 +136,17 @@ namespace core {
 		void handle_data() {
 			const auto [ title, msg, app ] = m_recv_data.get();
 
-			ArduinoJson::JsonDocument json{};
-			json[ "title" ] = title;
-			json[ "message" ] = msg;
-			json[ "application" ] = app;
+			ArduinoJson::JsonDocument json;
+			json["title"] = title;
+			json["message"] = msg;
+			json["application"] = app;
 
 			String str{};
-			serializeJson(json, str);
+			if (serializeJson(json, str) == 0) {
+				m_server->send(500, "application/json", R"({"error": "serialization failed"})");
+				return;
+			}
+
 			m_server->send(200, "application/json", str);
 		}
 
@@ -159,6 +171,11 @@ namespace core {
 		}
 
 		void connect() const {
+			if (m_ssid.length() == 0 || m_password.length() == 0) {
+				Serial.println("Invalid WiFi credentials");
+				return;
+			}
+
 			WiFi.begin(m_ssid.c_str(), m_password.c_str());
 
 			DBG(msg::inf, "connecting to wifi: ");
@@ -180,8 +197,21 @@ namespace core {
 		}
 
 	public:
-		c_wifi()
-			: m_server(new WebServer(k_def_port)) {
+		c_wifi() {
+			try {
+				m_server = std::unique_ptr< WebServer >(new WebServer(k_def_port));
+				if (!m_server)
+					throw std::runtime_error("WebServer allocation failed");
+			} catch (const std::bad_alloc& e) {
+				DBG(msg::err, "memalloc failed -> c_wifi\n");
+				esp_restart();
+			} catch (const std::exception& e) {
+				Serial.printf("failed to create webserver: %s\n", e.what());
+				esp_restart();
+			} catch (...) {
+				DBG(msg::err, "unknown error during webserver creation\n");
+				esp_restart();
+			}
 		}
 
 		void process() {
@@ -192,15 +222,15 @@ namespace core {
 
 		void setup_observers() {
 			g_cfg_mngr.add_observer(
-				"wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
-					m_ssid = value.as< String >();
+				"wifi_ssid", [this](const std::string& key, const JsonVariant& value) {
+					m_ssid = value.as<String>();
 					reconnect();
 				}
 			);
 
 			g_cfg_mngr.add_observer(
-				"wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
-					m_password = value.as< String >();
+				"wifi_password", [this](const std::string& key, const JsonVariant& value) {
+					m_password = value.as<String>();
 					reconnect();
 				}
 			);
@@ -218,13 +248,11 @@ namespace core {
 
 		void setup_server() {
 			m_server->begin();
-
 			reg_http_handlers();
 		}
 
 		void handle() const {
-			if (m_server)
-				m_server->handleClient();
+			m_server->handleClient();
 		}
 	};
 

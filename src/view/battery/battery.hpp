@@ -52,7 +52,7 @@ namespace view {
 
 			cur_voltage = constrain(cur_voltage, k_min, k_max);
 
-			return (cur_voltage - k_min) * 100 / (k_max - k_min);
+			return (cur_voltage - k_min) / (k_max - k_min);
 		}
 
 		float voltage() const { return m_voltage; }

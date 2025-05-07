@@ -18,7 +18,7 @@ namespace core {
 			notice_data_t(String title, String msg, String app,
 			              const std::chrono::steady_clock::time_point creation_time,
 			              const bool is_active = true) noexcept
-				: m_title(std::move(title)), m_msg(std::move(msg)), m_app(std::move(app)),
+				: m_title(title), m_msg(msg), m_app(app),
 				  m_creation_time(creation_time), m_is_active(is_active) {
 			}
 
@@ -97,12 +97,18 @@ namespace core {
 		}
 
 		bool process(const String& title, const String& msg, const String& app) {
+			if (title.length() == 0 || msg.length() == 0 || app.length() == 0) {
+				DBG(msg::neg, "invalid notice data\n");
+				return false;
+			}
+
 			Serial.printf(
 				"processing new notice: title='%s', msg='%s', app='%s'\n", title.c_str(), msg.c_str(), app.c_str()
 			);
 
 			notice_data_t notice(title, msg, app, _millis(), true);
 
+			std::lock_guard< std::mutex > lock(m_mutex);
 			if (m_queue.size() < k_queue_size) {
 				m_queue.push(std::move(notice));
 				DBG(msg::pos, "notice added to the queue successfully\n");
@@ -126,7 +132,8 @@ namespace core {
 					m_queue.pop();
 
 					if (m_active_notice_cnt < k_max_notices) {
-						if (const auto slot = find_free_slot()) {
+						const auto slot = find_free_slot();
+						if (slot != k_invalid_index) {
 							m_active_notices[ slot ] = notice;
 							++m_active_notice_cnt;
 
@@ -134,10 +141,13 @@ namespace core {
 								m_history_notices.push_back(notice);
 						}
 					}
-					else if (const auto oldest = find_oldest_notice()) {
-						m_active_notices[ oldest ] = notice;
-						if (m_history_notices.size() < 50u)
-							m_history_notices.push_back(notice);
+					else {
+						const auto oldest = find_oldest_notice();
+						if (oldest != k_invalid_index) {
+							m_active_notices[ oldest ] = notice;
+							if (m_history_notices.size() < 50u)
+								m_history_notices.push_back(notice);
+						}
 					}
 				}
 			}

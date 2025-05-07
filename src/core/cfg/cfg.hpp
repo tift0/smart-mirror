@@ -24,14 +24,14 @@ namespace core {
 										k_user_file = "/user_cfg.json";
 		constexpr static std::size_t	k_capacity = 4096u;
 
-		ArduinoJson::StaticJsonDocument< k_capacity > m_def_cfg{}, m_user_cfg{};
+		ArduinoJson::JsonDocument m_def_cfg{}, m_user_cfg{};
 
 		bool m_is_edited{};
 
 		std::unordered_map< cfg_key, std::vector< change_callback > > m_observers{};
 
 	public:
-		[[noreturn]] void process() {
+		void process() {
 			if (!LITTLEFS.begin(false)) {
 				DBG(msg::warn, "littlefs mount failed, formatting...\n");
 				if (LITTLEFS.format()) {
@@ -92,7 +92,7 @@ namespace core {
 				return false;
 			}
 
-			ArduinoJson::StaticJsonDocument< k_capacity > json{};
+			ArduinoJson::JsonDocument json{};
 			for (JsonPair kv : m_user_cfg.as< JsonObject >())
 				json[ kv.key() ] = kv.value();
 
@@ -120,7 +120,7 @@ namespace core {
 				return false;
 			}
 
-			ArduinoJson::StaticJsonDocument< k_capacity > json{};
+			ArduinoJson::JsonDocument json{};
 			if (const auto error = deserializeJson(json, file)) {
 				DBG(msg::err, "failed to parse user config, error:\n");
 				Serial.println(error.c_str());

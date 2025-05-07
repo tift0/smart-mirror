@@ -10,29 +10,35 @@ namespace core {
 	enum e_flags { none, center, center_y, right };
 
 	class c_renderer : public singleton_t< c_renderer > {
-	private:
-		Adafruit_ST7735 m_display{ 5, 4, 2 };
+		using renderer_callback = std::function< void(void) >;
 
-		math::vec2_t< float > measure_text(const std::string& text) {
+	private:
+		enum e_pin { e_cs = 5, e_dc = 4, e_rst = 2 };
+
+		Adafruit_ST7735 m_display{ e_cs, e_dc, e_rst };
+
+		template < typename _ty = std::uint16_t >
+		math::vec2_t< _ty > measure_text(const std::string& text) {
 			std::uint16_t width{}, height{};
 
 			m_display.getTextBounds(text.c_str(), 0, 0, nullptr, nullptr, &width, &height);
 
-			return { static_cast< float >(width), static_cast< float >(height) };
+			return { static_cast< _ty >(width), static_cast< _ty >(height) };
 		}
 
-		math::vec2_t< std::int16_t > adjust_position(
-			math::vec2_t< std::int16_t > pos, math::vec2_t< float > size, const e_flags flags
+		template < typename _ty = std::uint16_t >
+		math::vec2_t< _ty > adjust_position(
+			math::vec2_t< _ty > pos, math::vec2_t< _ty > size, const e_flags flags
 		) {
-			std::int16_t	new_x = pos.x(),
-							new_y = pos.y();
+			_ty	new_x = pos.x(),
+				new_y = pos.y();
 
 			if (flags & e_flags::center)
-				new_x -= static_cast< std::int16_t >(size.x() / 2.f);
+				new_x -= static_cast< _ty >(size.x() / 2.f);
 			if (flags & e_flags::center_y)
-				new_y -= static_cast< std::int16_t >(size.y() * 0.5f);
+				new_y -= static_cast< _ty >(size.y() * 0.5f);
 			if (flags & e_flags::right)
-				new_x -= static_cast< std::int16_t >(size.x());
+				new_x -= static_cast< _ty >(size.x());
 
 			return { new_x, new_y };
 		}
@@ -44,7 +50,7 @@ namespace core {
 		}
 
 		// p100
-		bool is_valid() const { return m_display ? true : false; }
+		bool is_valid() const { return m_display.width() > 0 && m_display.height() > 0; }
 
 		template < typename _ty = std::uint16_t >
 		void draw_line(math::vec2_t< _ty > start, math::vec2_t< _ty > end) {
@@ -76,7 +82,7 @@ namespace core {
 		}
 
 		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty >& screen_size() {
+		math::vec2_t< _ty > screen_size() {
 			const auto	width = m_display.width(),
 						height = m_display.height();
 
