@@ -5,6 +5,7 @@
 
 #include "sdk/singleton/singleton.hpp"
 #include "sdk/math/vec2.hpp"
+#include "sdk/msg/msg.hpp"
 
 namespace core {
 	enum e_flags { none, center, center_y, right };
@@ -15,27 +16,22 @@ namespace core {
 		bool              m_is_initialized{};
 
 		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty > measure_text(const String& text) {
+		math::vec2_t< _ty > measure_text(const String& text, std::uint8_t font_size = 1) {
 			if (!is_valid() || !m_display) {
-				DBG(msg::err, "measure_text: invalid display or renderer\n");
+				Serial.println("measure_text: invalid display or renderer");
 				return { 0, 0 };
 			}
 
 			if (text.isEmpty()) {
-				DBG(msg::inf, "measure_text: empty text\n");
+				Serial.println("measure_text: empty text");
 				return { 0, 0 };
 			}
 
-			auto len = text.length();
-			DBG(msg::inf, "measure_text: text length: %d\n", len);
+			constexpr int base_width = 6;
+			constexpr int base_height = 8;
 
-			std::uint16_t width{}, height{};
-			try {
-				m_display->getTextBounds(text, 0, 0, nullptr, nullptr, &width, &height);
-			} catch (...) {
-				DBG(msg::err, "measure_text: exception in getTextBounds\n");
-				return { 0, 0 };
-			}
+			int width = text.length() * (base_width * font_size),
+				height = base_height * font_size;
 
 			return { static_cast< _ty >(width), static_cast< _ty >(height) };
 		}
@@ -93,6 +89,7 @@ namespace core {
 
 		void set_buffer(Adafruit_SSD1306& display) {
 			DBG(msg::inf, "set_buffer: starting...\n");
+
 			m_display = &display;
 			m_is_initialized = true;
 
@@ -102,31 +99,33 @@ namespace core {
 			}
 
 			DBG(msg::inf, "set_buffer: configuring display...\n");
-			m_display->setTextSize(1);
-			m_display->setTextColor(SSD1306_WHITE);
-			m_display->setTextWrap(false);
+			try {
+				m_display->setTextSize(1);
+				m_display->setTextColor(SSD1306_WHITE);
+				m_display->setTextWrap(false);
+			} catch (...) {
+				DBG(msg::err, "set_buffer: failed to configure display\n");
+				return;
+			}
+
 			DBG(msg::inf, "set_buffer: completed\n");
 		}
 
 		template < typename _ty = std::uint16_t >
-		void draw_text(math::vec2_t< _ty > pos, const String& str, const e_flags flags = none) {
+		void draw_text(math::vec2_t< _ty > pos, const String& str, const std::uint8_t font_size = 1, const e_flags flags = none) {
 			if (!is_valid() || !m_display) {
 				DBG(msg::err, "draw_text: invalid display or renderer\n");
 				return;
 			}
 
-			DBG(msg::inf, "draw_text: measuring text...\n");
-			const auto size = measure_text(str);
+			const auto size = measure_text(str, font_size);
 
-			DBG(msg::inf, "draw_text: adjusting position...\n");
 			pos = adjust_position(pos, size, flags);
 
-			DBG(msg::inf, "draw_text: setting display properties...\n");
 			m_display->setTextSize(1);
 			m_display->setTextColor(SSD1306_WHITE);
 			m_display->setCursor(pos.x(), pos.y());
 
-			DBG(msg::inf, "draw_text: printing text...\n");
 			m_display->print(str.c_str());
 		}
 

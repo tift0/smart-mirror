@@ -6,32 +6,15 @@ namespace view {
 		bool m_is_initialized{};
 
 		void show_date(const math::vec2_t< std::int16_t > pos) {
-			DBG(msg::inf, "show_date: starting...\n");
-
-			if (!m_is_initialized) {
-				DBG(msg::err, "show_date: display not initialized\n");
-				return;
-			}
-
-			if (!core::g_renderer.is_valid()) {
-				DBG(msg::err, "show_date: renderer not valid\n");
-				return;
-			}
-
-			DBG(msg::inf, "show_date: creating time string...\n");
 			static char time_str[9]{};
 			const std::uint32_t cur_time = millis();
 
-			DBG(msg::inf, "show_date: formatting time...\n");
 			snprintf(time_str, sizeof(time_str), "%02d:%02d",
 				(cur_time / 3600000) % 24,
 				(cur_time / 60000) % 60
 			);
 
-			DBG(msg::inf, "show_date: drawing text...\n");
 			core::g_renderer.draw_text(pos, time_str);
-
-			DBG(msg::inf, "show_date: completed\n");
 		}
 
 		void show_charge(const math::vec2_t< std::int16_t > pos) {
