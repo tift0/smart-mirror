@@ -80,8 +80,6 @@ void loop() {
 
 	//view::g_battery.handle();
 
-	delay(10);
-
 	core::g_renderer.handle(
 		[ & ] {
 			view::g_display.handle();

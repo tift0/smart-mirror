@@ -104,6 +104,9 @@ namespace core {
 
 			file.close();
 			m_is_edited = false;
+
+			DBG(msg::inf, "saving cfg\n");
+
 			return true;
 		}
 
