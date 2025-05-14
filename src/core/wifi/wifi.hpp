@@ -49,6 +49,11 @@ constexpr char g_html_page[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
+/*
+ * @todo 1:
+ *		> 2 way connection
+ *		  i.e. connection between: phone -> esp -> local wifi
+ */
 namespace core {
 	struct recv_data_t {
 	private:
@@ -57,14 +62,14 @@ namespace core {
 	public:
 		recv_data_t() = default;
 
-		/* title / message / app  */
+		/* title / message / app */
 		explicit recv_data_t(const std::tuple< String, String, String >& _tuple)
 			: m_title(std::get< 0 >(_tuple)),
 			  m_msg(std::get< 1 >(_tuple)),
 			  m_app(std::get< 2 >(_tuple)) {
 		}
 
-		/* title / message / app / time */
+		/* title / message / app */
 		std::tuple< const String&, const String&, const String& > get() const noexcept {
 			return std::tie(m_title, m_msg, m_app);
 		}
@@ -96,6 +101,7 @@ namespace core {
 
 			ArduinoJson::JsonDocument json;
 			auto body = m_server->arg("plain");
+			/* the received data is too large */
 			if (body.length() > 512) {
 				m_server->send(400, "application/json", R"({"error": "data too large"})");
 				return;
@@ -170,15 +176,16 @@ namespace core {
 			);
 		}
 
+		/* @todo 1 */
 		void connect() const {
 			if (m_ssid.length() == 0 || m_password.length() == 0) {
-				Serial.println("Invalid WiFi credentials");
+				DBG(msg::err, "wifi::connect: received empty auth data\n");
 				return;
 			}
 
 			WiFi.begin(m_ssid.c_str(), m_password.c_str());
 
-			DBG(msg::inf, "connecting to wifi: ");
+			DBG(msg::inf, "wifi::connect: connecting to wifi: ");
 			Serial.println(m_ssid.c_str());
 		}
 
@@ -200,16 +207,18 @@ namespace core {
 		c_wifi() {
 			try {
 				m_server = std::unique_ptr< WebServer >(new WebServer(k_def_port));
-				if (!m_server)
-					throw std::runtime_error("WebServer allocation failed");
+				if (!m_server) {
+					DBG(msg::err, "wifi::c_wifi: webserver alloc failed\n");
+					esp_restart();
+				}
 			} catch (const std::bad_alloc& e) {
-				DBG(msg::err, "memalloc failed -> c_wifi\n");
+				DBG(msg::err, "wifi::c_wifi: memalloc failed\n");
 				esp_restart();
 			} catch (const std::exception& e) {
-				Serial.printf("failed to create webserver: %s\n", e.what());
+				Serial.printf("wifi::c_wifi: failed to create webserver: %s\n", e.what());
 				esp_restart();
 			} catch (...) {
-				DBG(msg::err, "unknown error during webserver creation\n");
+				DBG(msg::err, "wifi::c_wifi: unknown error during webserver creation\n");
 				esp_restart();
 			}
 		}
@@ -222,16 +231,16 @@ namespace core {
 
 		void setup_observers() {
 			g_cfg_mngr.add_observer(
-				"wifi_ssid", [this](const std::string& key, const JsonVariant& value) {
-					m_ssid = value.as<String>();
-					reconnect();
+				"wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
+					m_ssid = value.as< String >();
+					//reconnect();
 				}
 			);
 
 			g_cfg_mngr.add_observer(
-				"wifi_password", [this](const std::string& key, const JsonVariant& value) {
-					m_password = value.as<String>();
-					reconnect();
+				"wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
+					m_password = value.as< String >();
+					//reconnect();
 				}
 			);
 		}

@@ -16,11 +16,11 @@ namespace view {
 
 		void process() {
 			if (!m_ina219.begin()) {
-				DBG(msg::err, "failed to find ina219\n");
+				DBG(msg::err, "battery::process: failed to find ina219\n");
 				esp_restart();
 			}
 
-			DBG(msg::pos, "ina219 initialized\n");
+			DBG(msg::pos, "battery::process: ina219 initialized\n");
 		}
 
 		void handle() {

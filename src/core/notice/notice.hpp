@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <queue>
+#include <utility>
 
 #include "sdk/singleton/singleton.hpp"
 
@@ -15,10 +16,10 @@ namespace core {
 
 			notice_data_t() = default;
 
-			notice_data_t(String title, String msg, String app,
+			notice_data_t(String  title, String msg, String app,
 			              const std::chrono::steady_clock::time_point creation_time,
 			              const bool is_active = true) noexcept
-				: m_title(title), m_msg(msg), m_app(app),
+				: m_title(std::move(title)), m_msg(std::move(msg)), m_app(std::move(app)),
 				  m_creation_time(creation_time), m_is_active(is_active) {
 			}
 
@@ -74,11 +75,11 @@ namespace core {
 		}
 
 		std::size_t find_oldest_notice() const noexcept {
-			if (m_active_notice_cnt == 0)
+			if (m_active_notice_cnt == 0u)
 				return k_invalid_index;
 
 			std::size_t oldest_idx = k_invalid_index;
-			auto oldest_time = std::chrono::steady_clock::time_point::max();
+			auto		oldest_time = std::chrono::steady_clock::time_point::max();
 
 			for (std::size_t i{}; i < k_max_notices; i++) {
 				const auto& notice = m_active_notices[ i ];
@@ -158,9 +159,10 @@ namespace core {
 			std::vector< notice_data_t > result{};
 			result.reserve(k_max_notices);
 
-			for (const auto& notice : m_active_notices)
+			for (const auto& notice : m_active_notices) {
 				if (notice.m_is_active)
 					result.push_back(notice);
+			}
 
 			return result;
 		}

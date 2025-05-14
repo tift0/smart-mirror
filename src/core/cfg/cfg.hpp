@@ -9,10 +9,6 @@
 
 #include "sdk/singleton/singleton.hpp"
 
-/*
- * @todo:
- *      > mutex
- */
 namespace core {
 	class c_cfg_manager : public singleton_t< c_cfg_manager > {
 		using cfg_key = std::string;
@@ -33,31 +29,31 @@ namespace core {
 	public:
 		void process() {
 			if (!LITTLEFS.begin(false)) {
-				DBG(msg::warn, "littlefs mount failed, formatting...\n");
+				DBG(msg::warn, "cfg::process: littlefs mount failed, formatting...\n");
 				if (LITTLEFS.format()) {
-					DBG(msg::pos, "format successful, retrying mount...\n");
+					DBG(msg::pos, "cfg::process: format successful, retrying mount...\n");
 					if (!LITTLEFS.begin(false)) {
-						DBG(msg::warn, "mount still failed after format\n");
+						DBG(msg::warn, "cfg::process: mount still failed after format\n");
 						esp_restart();
 					}
 				}
 				else {
-					DBG(msg::neg, "format failed\n");
+					DBG(msg::neg, "cfg::process: format failed\n");
 					esp_restart();
 				}
 			}
 			else
-				DBG(msg::pos, "littlefs mounted successfully\n");
+				DBG(msg::pos, "cfg::process: littlefs mounted successfully\n");
 
 			load_def_file();
 
 			if (!load_user_file())
-				DBG(msg::inf, "user config not found, using defaults\n");
+				DBG(msg::inf, "cfg::process: user config not found, using defaults\n");
 
 			apply_def_file();
 		}
 
-		bool set(const cfg_key& key, const JsonVariant& value) {
+		bool set(const cfg_key& key, const json_value& value) {
 			m_user_cfg[ key ] = value;
 			m_is_edited = true;
 
@@ -83,12 +79,17 @@ namespace core {
 		}
 
 		bool save_file() {
-			if (!m_is_edited)
-				return true;
+			DBG(msg::inf, "cfg::save_file: save_file: m_is_edited = ");
+			Serial.println(m_is_edited ? "true" : "false");
 
-			File file = LITTLEFS.open(k_user_file, FILE_WRITE);
+			if (!m_is_edited) {
+				Serial.println("cfg::save_file: save_file: no changes to save");
+				return true;
+			}
+
+			auto file = LITTLEFS.open(k_user_file, FILE_WRITE);
 			if (!file) {
-				DBG(msg::err, "can't open user config\n");
+				DBG(msg::err, "cfg::save_file: can't open user config\n");
 				return false;
 			}
 
@@ -97,7 +98,7 @@ namespace core {
 				json[ kv.key() ] = kv.value();
 
 			if (serializeJson(json, file) == 0) {
-				DBG(msg::err, "failed to write json to file\n");
+				DBG(msg::err, "cfg::save_file: failed to write json to file\n");
 				file.close();
 				return false;
 			}
@@ -105,7 +106,7 @@ namespace core {
 			file.close();
 			m_is_edited = false;
 
-			DBG(msg::inf, "saving cfg\n");
+			DBG(msg::pos, "cfg::save_file: config saved\n");
 
 			return true;
 		}
@@ -113,19 +114,19 @@ namespace core {
 	private:
 		bool load_user_file() {
 			if (!LITTLEFS.exists(k_user_file)) {
-				DBG(msg::err, "can't find user config\n");
+				DBG(msg::err, "cfg::load_user_file: can't find user config\n");
 				return false;
 			}
 
 			auto file = LITTLEFS.open(k_user_file, FILE_READ);
 			if (!file) {
-				DBG(msg::err, "can't open user config\n");
+				DBG(msg::err, "cfg::load_user_file: can't open user config\n");
 				return false;
 			}
 
 			ArduinoJson::JsonDocument json{};
 			if (const auto error = deserializeJson(json, file)) {
-				DBG(msg::err, "failed to parse user config, error:\n");
+				DBG(msg::err, "cfg::load_user_file: failed to parse user config, error:\n");
 				Serial.println(error.c_str());
 				return false;
 			}

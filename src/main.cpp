@@ -44,7 +44,7 @@ void setup() {
 	display.clearDisplay();
 	display.display();
 
-	core::g_renderer.set_buffer(display);
+	core::g_renderer.process(display);
 
 	if (!core::g_renderer.is_valid()) {
 		DBG(msg::err, "renderer init failed\n");
@@ -64,7 +64,7 @@ void setup() {
 
 void loop() {
 	static std::uint32_t    last_save_time = 0u;
-	constexpr std::uint32_t save_interval = 60000u; // once per minute
+	constexpr std::uint32_t save_interval = 30000u; // once per minute
 
 	const std::uint32_t cur_time = millis();
 	if (cur_time - last_save_time >= save_interval) {

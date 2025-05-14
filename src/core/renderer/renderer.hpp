@@ -8,15 +8,33 @@
 #include "sdk/msg/msg.hpp"
 
 namespace core {
-	enum e_flags { none, center, center_y, right };
+	enum e_align { none, center, center_y, right };
 
 	class c_renderer : public singleton_t< c_renderer > {
 	private:
 		Adafruit_SSD1306* m_display{};
 		bool              m_is_initialized{};
 
+		void clear_buffer() const {
+			if (!is_valid() || !m_display) {
+				DBG(msg::err, "clear_buffer: invalid display or renderer\n");
+				return;
+			}
+
+			m_display->clearDisplay();
+		}
+
+		void send_buffer() const {
+			if (!is_valid() || !m_display) {
+				DBG(msg::err, "send_buffer: invalid display or renderer\n");
+				return;
+			}
+
+			m_display->display();
+		}
+
 		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty > measure_text(const String& text, std::uint8_t font_size = 1) {
+		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_size = 1) {
 			if (!is_valid() || !m_display) {
 				Serial.println("measure_text: invalid display or renderer");
 				return { 0, 0 };
@@ -27,28 +45,36 @@ namespace core {
 				return { 0, 0 };
 			}
 
-			constexpr int base_width = 6;
-			constexpr int base_height = 8;
+			constexpr int k_base_width = 6;
+			constexpr int k_base_height = 8;
 
-			int width = text.length() * (base_width * font_size),
-				height = base_height * font_size;
+			int width = text.length() * (k_base_width * font_size),
+				height = k_base_height * font_size;
 
 			return { static_cast< _ty >(width), static_cast< _ty >(height) };
 		}
 
 		template < typename _ty_p = std::uint16_t, typename _ty_s = std::uint16_t >
 		math::vec2_t< _ty_p > adjust_position(
-			math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size, const e_flags flags
+			math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size, const e_align flags
 		) {
 			_ty_p	new_x = pos.x(),
-				new_y = pos.y();
+					new_y = pos.y();
 
-			if (flags & e_flags::center)
-				new_x -= static_cast< _ty_p >(size.x() / 2.f);
-			if (flags & e_flags::center_y)
-				new_y -= static_cast< _ty_p >(size.y() * 0.5f);
-			if (flags & e_flags::right)
-				new_x -= static_cast< _ty_p >(size.x());
+			switch (flags) {
+				case e_align::center:
+					new_x = static_cast<_ty_p>(pos.x() - (size.x() / 2));
+					break;
+				case e_align::center_y:
+					new_y = static_cast<_ty_p>(pos.y() - (size.y() / 2));
+					break;
+				case e_align::right:
+					new_x = static_cast<_ty_p>(pos.x() - size.x());
+					break;
+				case e_align::none:
+				default:
+					break;
+			}
 
 			return { new_x, new_y };
 		}
@@ -56,67 +82,44 @@ namespace core {
 	public:
 		bool is_valid() const { return m_is_initialized && m_display != nullptr; }
 
-		void process() {
-			// ...
-		}
+		void process(Adafruit_SSD1306& display) {
+			DBG(msg::inf, "renderer::process: starting...\n");
 
-		void clear_buffer() const {
-			if (!is_valid()) {
-				DBG(msg::err, "renderer not valid #1\n");
+			m_display = &display;
+			m_is_initialized = true;
+
+			if (!m_display) {
+				DBG(msg::err, "renderer::process: display pointer is null after assignment\n");
 				return;
 			}
 
-			m_display->clearDisplay();
-		}
-
-		void send_buffer() const {
-			if (!is_valid()) {
-				DBG(msg::err, "renderer not valid #2\n");
+			DBG(msg::inf, "renderer::process: configuring display...\n");
+			try {
+				m_display->setTextSize(1);
+				m_display->setTextColor(SSD1306_WHITE);
+				m_display->setTextWrap(false);
+			} catch (...) {
+				DBG(msg::err, "renderer::process: failed to configure display\n");
 				return;
 			}
 
-			m_display->display();
+			DBG(msg::inf, "renderer::process: completed\n");
 		}
 
 		template < typename _fn >
 		void handle(_fn&& fn) {
 			clear_buffer();
 
-			fn();
+			std::forward< _fn >(fn)();
 
 			send_buffer();
 		}
 
-		void set_buffer(Adafruit_SSD1306& display) {
-			DBG(msg::inf, "set_buffer: starting...\n");
-
-			m_display = &display;
-			m_is_initialized = true;
-
-			if (!m_display) {
-				DBG(msg::err, "set_buffer: display pointer is null after assignment\n");
-				return;
-			}
-
-			DBG(msg::inf, "set_buffer: configuring display...\n");
-			try {
-				m_display->setTextSize(1);
-				m_display->setTextColor(SSD1306_WHITE);
-				m_display->setTextWrap(false);
-			} catch (...) {
-				DBG(msg::err, "set_buffer: failed to configure display\n");
-				return;
-			}
-
-			DBG(msg::inf, "set_buffer: completed\n");
-		}
-
 		template < typename _ty = std::uint16_t >
-		void draw_text(math::vec2_t< _ty > pos, const String& str, const std::uint8_t font_size = 1, const e_flags flags = none) {
-			if (!is_valid() || !m_display) {
-				DBG(msg::err, "draw_text: invalid display or renderer\n");
+		void draw_text(math::vec2_t< _ty > pos, const String& str, const std::uint8_t font_size = 1, const e_align flags = none) {
+			if (!is_valid()
+				|| !m_display)
 				return;
-			}
 
 			const auto size = measure_text(str, font_size);
 
