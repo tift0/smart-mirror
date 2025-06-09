@@ -7,48 +7,6 @@
 
 #include "core/cfg/cfg.hpp"
 
-// https://www.youtube.com/shorts/hv7uPsPRqJ0
-constexpr char g_html_page[] PROGMEM = R"rawliteral(
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>data</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        .container { max-width: 400px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
-        h2 { color: #007bff; }
-        p { font-size: 20px; }
-        .application { font-size: 14px; color: gray; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>data</h2>
-        <p><strong>title:</strong> <span id="title">wait...</span></p>
-        <p><strong>message:</strong> <span id="message">wait...</span></p>
-        <p class="application">application: <span id="application">-</span></p>
-    </div>
-
-    <script>
-        function updateData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('title').innerText = data.title;
-                    document.getElementById('message').innerText = data.message;
-                    document.getElementById('application').innerText = data.application;
-                })
-                .catch(error => console.error('Error fetching data:', error));
-        }
-        setInterval(updateData, 500);
-        updateData();
-    </script>
-</body>
-</html>
-)rawliteral";
-
 /*
  * @todo 1:
  *		> 2 way connection
@@ -62,7 +20,6 @@ namespace core {
 	public:
 		recv_data_t() = default;
 
-		/* title / message / app */
 		explicit recv_data_t(const std::tuple< String, String, String >& _tuple)
 			: m_title(std::get< 0 >(_tuple)),
 			  m_msg(std::get< 1 >(_tuple)),
@@ -70,7 +27,7 @@ namespace core {
 		}
 
 		/* title / message / app */
-		std::tuple< const String&, const String&, const String& > get() const noexcept {
+		auto get() const noexcept -> std::tuple< const String&, const String&, const String& > {
 			return std::tie(m_title, m_msg, m_app);
 		}
 	} m_recv_data{};
@@ -86,7 +43,14 @@ namespace core {
 		std::unique_ptr< WebServer > m_server;
 
 	private:
-		void handle_post_request() {
+		void handle_notice_post() {
+			DBG(msg::recv, "request received at /post:\n");
+			for (int i = 0; i < m_server->headers(); i++)
+				Serial.printf("%s: %s\n", m_server->headerName(i).c_str(), m_server->header(i).c_str());
+
+			DBG(msg::inf, "body: ");
+			Serial.println(m_server->arg("plain"));
+
 			/* wrong method */
 			if (m_server->method() != HTTP_POST) {
 				m_server->send(405, "application/json", R"({"error": "method not allowed"})");
@@ -99,8 +63,8 @@ namespace core {
 				return;
 			}
 
-			ArduinoJson::JsonDocument json;
-			auto body = m_server->arg("plain");
+			JsonDocument json{};
+			const auto body = m_server->arg("plain");
 			/* the received data is too large */
 			if (body.length() > 512) {
 				m_server->send(400, "application/json", R"({"error": "data too large"})");
@@ -114,38 +78,85 @@ namespace core {
 			}
 
 			/* fill struct data */
-			try {
+			{
+				const auto	title = json["title"].as< String >(),
+							msg = json["message"].as< String >(),
+							app = json[ "application" ].as< String >();
+
 				m_recv_data = recv_data_t(
-					std::make_tuple(
-						json["title"].as< String >(),
-						json["message"].as< String >(),
-						json["application"].as< String >()
-					)
+					std::make_tuple(title, msg, app)
 				);
 
-				{
-					const auto [ title, msg, app ] = m_recv_data.get();
-					g_notice_mngr.process(title, msg, app);
-				}
-
-				const auto response = R"({"status": "success"})";
-				m_server->send(200, "application/json", response);
-			} catch (const std::exception& e) {
-				m_server->send(500, "application/json", R"({"error": "internal server error"})");
+				g_notice_mngr.process(title, msg, app);
 			}
+
+			const auto response = R"({"status": "success"})";
+			m_server->send(200, "application/json", response);
 		}
 
-		void handle_root() const {
-			m_server->send(200, "text/html", g_html_page);
+		void handle_cfg_post() {
+			DBG(msg::recv, "request received at /post_cfg:\n");
+			for (int i{}; i < m_server->headers(); i++)
+				Serial.printf("%s: %s\n", m_server->headerName(i).c_str(), m_server->header(i).c_str());
+
+			DBG(msg::inf, "body: ");
+			Serial.println(m_server->arg("plain"));
+
+			/* wrong method */
+			if (m_server->method() != HTTP_POST) {
+				m_server->send(405, "application/json", R"({"error": "method not allowed"})");
+				return;
+			}
+
+			/* no available data */
+			if (!m_server->hasArg("plain")) {
+				m_server->send(400, "application/json", R"({"error": "no data"})");
+				return;
+			}
+
+			JsonDocument json{};
+			auto body = m_server->arg("plain");
+			/* the received data is too large */
+			if (body.length() > 512) {
+				m_server->send(400, "application/json", R"({"error": "data too large"})");
+				return;
+			}
+
+			/* invalid json */
+			if (const auto error = deserializeJson(json, body)) {
+				m_server->send(400, "application/json", R"({"error": "invalid json"})");
+				return;
+			}
+
+			bool changed{};
+			for (JsonPair kv : json.as< JsonObject >()) {
+				const auto key = kv.key().c_str();
+				g_cfg_mngr.set(key, kv.value());
+				changed = true;
+			}
+
+			if (changed)
+				g_cfg_mngr.save_file();
+
+			const auto response = R"({"status": "success"})";
+			m_server->send(200, "application/json", response);
 		}
 
-		void handle_data() {
-			const auto [ title, msg, app ] = m_recv_data.get();
+		void handle_cfg_get() {
+			DBG(msg::recv, "request received at /cfg:\n");
+			for (int i{}; i < m_server->headers(); i++)
+				Serial.printf("%s: %s\n", m_server->headerName(i).c_str(), m_server->header(i).c_str());
 
-			ArduinoJson::JsonDocument json;
-			json["title"] = title;
-			json["message"] = msg;
-			json["application"] = app;
+			auto	def_obj = g_cfg_mngr.get_cfg(true),
+					user_obj = g_cfg_mngr.get_cfg(false);
+
+			JsonDocument json{};
+			for (JsonPair kv : def_obj.as< JsonObject >()) {
+				const char* key = kv.key().c_str();
+				!user_obj[key].isNull()
+					? json[ key ] = user_obj[ key ]
+					: json[ key ] = kv.value();
+			}
 
 			String str{};
 			if (serializeJson(json, str) == 0) {
@@ -158,19 +169,23 @@ namespace core {
 
 		void reg_http_handlers() {
 			m_server->on(
-				"/", [ & ] { handle_root(); }
+				"/post", HTTP_POST, [ & ] { handle_notice_post(); }
 			);
 
 			m_server->on(
-				"/data", [ & ] { handle_data(); }
+				"/post_cfg", HTTP_POST, [ & ] { handle_cfg_post(); }
 			);
 
 			m_server->on(
-				"/post", HTTP_POST, [ & ] { handle_post_request(); }
+				"/cfg", HTTP_GET, [ & ] { handle_cfg_get(); }
 			);
 
 			m_server->onNotFound(
 				[ & ] {
+					DBG(msg::recv, "request received for unknown endpoint\n");
+					for (int i{}; i < m_server->headers(); i++)
+						Serial.printf("%s: %s\n", m_server->headerName(i).c_str(), m_server->header(i).c_str());
+
 					m_server->send(404, "text/plain", "not found");
 				}
 			);
@@ -183,7 +198,10 @@ namespace core {
 				return;
 			}
 
-			WiFi.begin(m_ssid.c_str(), m_password.c_str());
+			WiFi.begin(
+				m_ssid.c_str(),
+				m_password.c_str()
+			);
 
 			DBG(msg::inf, "wifi::connect: connecting to wifi: ");
 			Serial.println(m_ssid.c_str());
@@ -191,13 +209,13 @@ namespace core {
 
 		void reconnect() {
 			if (m_reconnect_attempts >= k_max_reconnect_attempts) {
-				Serial.println("max reconnect attempts reached");
+				DBG(msg::warn, "wifi::reconnect: max reconnect attempts reached\n");
 				return;
 			}
 
 			m_reconnect_attempts++;
 			Serial.printf(
-				"reconnecting to wifi (attempt %d/%d)...\n", m_reconnect_attempts, k_max_reconnect_attempts
+				"wifi::reconnect: reconnecting to wifi (attempt %d/%d)...\n", m_reconnect_attempts, k_max_reconnect_attempts
 			);
 
 			connect();
@@ -205,20 +223,9 @@ namespace core {
 
 	public:
 		c_wifi() {
-			try {
-				m_server = std::unique_ptr< WebServer >(new WebServer(k_def_port));
-				if (!m_server) {
-					DBG(msg::err, "wifi::c_wifi: webserver alloc failed\n");
-					esp_restart();
-				}
-			} catch (const std::bad_alloc& e) {
-				DBG(msg::err, "wifi::c_wifi: memalloc failed\n");
-				esp_restart();
-			} catch (const std::exception& e) {
-				Serial.printf("wifi::c_wifi: failed to create webserver: %s\n", e.what());
-				esp_restart();
-			} catch (...) {
-				DBG(msg::err, "wifi::c_wifi: unknown error during webserver creation\n");
+			m_server = std::unique_ptr<WebServer>(new WebServer(k_def_port));
+			if (!m_server) {
+				DBG(msg::err, "wifi::c_wifi: webserver alloc failed\n");
 				esp_restart();
 			}
 		}
@@ -247,8 +254,8 @@ namespace core {
 
 		void setup_wifi() {
 			WiFi.softAP(
-				g_cfg_mngr.get("wifi_ssid").as< String >(),
-				g_cfg_mngr.get("wifi_password").as< String >()
+				"espwfsm",
+				"iforgotthepassword"
 			);
 
 			DBG(msg::inf, "ip address: ");
@@ -256,8 +263,8 @@ namespace core {
 		}
 
 		void setup_server() {
-			m_server->begin();
 			reg_http_handlers();
+			m_server->begin();
 		}
 
 		void handle() const {

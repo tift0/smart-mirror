@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_ST7735.h>
 #include <Adafruit_GFX.h>
 
 #include "sdk/singleton/singleton.hpp"
@@ -10,46 +10,38 @@
 namespace core {
 	enum e_align { none, center, center_y, right };
 
+	// @reference: Adafruit_ST77xx.h
+	enum e_clr : std::uint16_t {
+		black = 0x0000, white = 0xFFFF, red = 0xF800,
+		green = 0x07E0, blue = 0x001F, cyan = 0x07FF,
+		magenta = 0xF81F, yellow = 0xFFE0, orange = 0xFC00
+	};
+
 	class c_renderer : public singleton_t< c_renderer > {
 	private:
-		Adafruit_SSD1306* m_display{};
-		bool              m_is_initialized{};
+		enum e_pinout { e_cs = 13, e_dc = 2, e_rst = 4, e_mosi = 23, e_sclk = 18 };
 
-		void clear_buffer() const {
-			if (!is_valid() || !m_display) {
-				DBG(msg::err, "clear_buffer: invalid display or renderer\n");
-				return;
-			}
-
-			m_display->clearDisplay();
-		}
-
-		void send_buffer() const {
-			if (!is_valid() || !m_display) {
-				DBG(msg::err, "send_buffer: invalid display or renderer\n");
-				return;
-			}
-
-			m_display->display();
-		}
+		Adafruit_ST7735*	m_display{};
+		bool				m_is_initialized{};
 
 		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_size = 1) {
-			if (!is_valid() || !m_display) {
-				Serial.println("measure_text: invalid display or renderer");
+		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_size = 1u) {
+			if (!is_valid()) {
+				DBG(msg::err, "measure_text: invalid display or renderer");
 				return { 0, 0 };
 			}
 
 			if (text.isEmpty()) {
-				Serial.println("measure_text: empty text");
+				DBG(msg::err, "measure_text: empty text\n");
 				return { 0, 0 };
 			}
 
-			constexpr int k_base_width = 6;
-			constexpr int k_base_height = 8;
+			// yep
+			constexpr std::uint64_t k_base_width = 6u,
+									k_base_height = 8u;
 
-			int width = text.length() * (k_base_width * font_size),
-				height = k_base_height * font_size;
+			auto	width = text.length() * (k_base_width * font_size),
+					height = k_base_height * font_size;
 
 			return { static_cast< _ty >(width), static_cast< _ty >(height) };
 		}
@@ -63,13 +55,13 @@ namespace core {
 
 			switch (flags) {
 				case e_align::center:
-					new_x = static_cast<_ty_p>(pos.x() - (size.x() / 2));
+					new_x = static_cast< _ty_p >(pos.x() - (size.x() / 2));
 					break;
 				case e_align::center_y:
-					new_y = static_cast<_ty_p>(pos.y() - (size.y() / 2));
+					new_y = static_cast< _ty_p >(pos.y() - (size.y() / 2));
 					break;
 				case e_align::right:
-					new_x = static_cast<_ty_p>(pos.x() - size.x());
+					new_x = static_cast< _ty_p >(pos.x() - size.x());
 					break;
 				case e_align::none:
 				default:
@@ -79,81 +71,92 @@ namespace core {
 			return { new_x, new_y };
 		}
 
+		template < typename _ty_p = std::int16_t, typename _ty_s = std::int16_t >
+		void clear_text_area(math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size) const {
+			constexpr static std::int16_t k_padding = 1;
+
+			m_display->writeFillRect(
+				pos.x() - k_padding,
+				pos.y() - k_padding,
+				size.x() + k_padding * 2,
+				size.y() + k_padding * 2,
+				e_clr::black
+			);
+		}
+
 	public:
 		bool is_valid() const { return m_is_initialized && m_display != nullptr; }
 
-		void process(Adafruit_SSD1306& display) {
-			DBG(msg::inf, "renderer::process: starting...\n");
+		void process() {
+			if (is_valid())
+				return;
 
-			m_display = &display;
+			m_display = new Adafruit_ST7735(
+				e_pinout::e_cs, e_pinout::e_dc, e_pinout::e_mosi, e_pinout::e_sclk, e_pinout::e_rst
+			);
+
+			m_display->initR(INITR_BLACKTAB);
+			m_display->setRotation(3u);
+			m_display->fillScreen(e_clr::black);
+
 			m_is_initialized = true;
-
-			if (!m_display) {
-				DBG(msg::err, "renderer::process: display pointer is null after assignment\n");
-				return;
-			}
-
-			DBG(msg::inf, "renderer::process: configuring display...\n");
-			try {
-				m_display->setTextSize(1);
-				m_display->setTextColor(SSD1306_WHITE);
-				m_display->setTextWrap(false);
-			} catch (...) {
-				DBG(msg::err, "renderer::process: failed to configure display\n");
-				return;
-			}
-
-			DBG(msg::inf, "renderer::process: completed\n");
 		}
 
-		template < typename _fn >
-		void handle(_fn&& fn) {
-			clear_buffer();
-
-			std::forward< _fn >(fn)();
-
-			send_buffer();
-		}
-
-		template < typename _ty = std::uint16_t >
-		void draw_text(math::vec2_t< _ty > pos, const String& str, const std::uint8_t font_size = 1, const e_align flags = none) {
+		template < typename _ty = std::int16_t >
+		void draw_text(
+			math::vec2_t< _ty > pos, const String& str, const std::uint16_t clr = e_clr::white,
+			const std::uint8_t font_size = 1u, const e_align flags = e_align::none
+		) {
 			if (!is_valid()
-				|| !m_display)
+				|| str.isEmpty())
 				return;
 
 			const auto size = measure_text(str, font_size);
-
 			pos = adjust_position(pos, size, flags);
 
-			m_display->setTextSize(1);
-			m_display->setTextColor(SSD1306_WHITE);
+			static String prev_str{};
+			if (prev_str != str) {
+				clear_text_area(pos, size);
+				prev_str = str;
+			}
+
+			m_display->setTextSize(font_size);
+			m_display->setTextColor(clr, e_clr::black);
+			m_display->setTextWrap(true);
 			m_display->setCursor(pos.x(), pos.y());
 
-			m_display->print(str.c_str());
+			m_display->print(str);
 		}
 
-		template < typename _ty = std::uint16_t >
-		void draw_line(math::vec2_t< _ty > start, math::vec2_t< _ty > end) {
-			if (!is_valid()
-				|| !m_display)
+		template < typename _ty = std::int16_t >
+		void draw_line(math::vec2_t< _ty > start, math::vec2_t< _ty > end, const e_clr clr) {
+			if (!is_valid())
 				return;
 
-			m_display->drawLine(start.x(), start.y(), end.x(), end.y(), SSD1306_WHITE);
+			m_display->drawLine(start.x(), start.y(), end.x(), end.y(), clr);
 		}
 
-		template < typename _ty = std::uint16_t >
-		void draw_rect(math::vec2_t< _ty > pos, math::vec2_t< _ty > size) {
-			if (!is_valid()
-				|| !m_display)
+		template < typename _ty = std::int16_t >
+		void draw_rect(math::vec2_t< _ty > pos, math::vec2_t< _ty > size, const e_clr clr) {
+			if (!is_valid())
 				return;
 
-			m_display->fillRect(pos.x(), pos.y(), size.x(), size.y(), SSD1306_WHITE);
+			m_display->fillRect(pos.x(), pos.y(), size.x(), size.y(), clr);
 		}
 
-		template < typename _ty = std::uint16_t >
+		template < typename _ty = std::int16_t >
+		void draw_circle(math::vec2_t< _ty > center, _ty radius, const e_clr clr, const bool filled = true) {
+			if (!is_valid())
+				return;
+
+			filled ?
+				m_display->fillCircle(center.x(), center.y(), radius, clr)
+				: m_display->drawCircle(center.x(), center.y(), radius, clr);
+		}
+
+		template < typename _ty = std::int16_t >
 		math::vec2_t< _ty > screen_size() {
-			if (!is_valid()
-				|| !m_display)
+			if (!is_valid())
 				return { 0, 0 };
 
 			auto	width = m_display->width(),

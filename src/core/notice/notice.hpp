@@ -99,7 +99,7 @@ namespace core {
 
 		bool process(const String& title, const String& msg, const String& app) {
 			if (title.length() == 0 || msg.length() == 0 || app.length() == 0) {
-				DBG(msg::neg, "invalid notice data\n");
+				DBG(msg::neg, "notice::process: invalid notice data\n");
 				return false;
 			}
 
@@ -112,11 +112,11 @@ namespace core {
 			std::lock_guard< std::mutex > lock(m_mutex);
 			if (m_queue.size() < k_queue_size) {
 				m_queue.push(std::move(notice));
-				DBG(msg::pos, "notice added to the queue successfully\n");
+				DBG(msg::pos, "notice::process: notice added to the queue successfully\n");
 				return true;
 			}
 			else {
-				DBG(msg::neg, "failed to add notice to the queue\n");
+				DBG(msg::neg, "notice::process: failed to add notice to the queue\n");
 				return false;
 			}
 		}
@@ -159,10 +159,9 @@ namespace core {
 			std::vector< notice_data_t > result{};
 			result.reserve(k_max_notices);
 
-			for (const auto& notice : m_active_notices) {
+			for (const auto& notice : m_active_notices)
 				if (notice.m_is_active)
 					result.push_back(notice);
-			}
 
 			return result;
 		}

@@ -1,26 +1,24 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
+#include <unordered_map>
 
 #include <ArduinoJson.h>
 #include <LittleFS.h>
-#include <FS.h>
 
 #include "sdk/singleton/singleton.hpp"
 
 namespace core {
 	class c_cfg_manager : public singleton_t< c_cfg_manager > {
 		using cfg_key = std::string;
-		using json_value = ArduinoJson::JsonVariant;
+		using json_value = JsonVariant;
 		using change_callback = std::function< void(const cfg_key&, const json_value&) >;
 
 	private:
-		constexpr static auto			k_def_file = "/def_cfg.json",
-										k_user_file = "/user_cfg.json";
-		constexpr static std::size_t	k_capacity = 4096u;
+		constexpr static auto	k_def_file = "/def_cfg.json",
+								k_user_file = "/user_cfg.json";
 
-		ArduinoJson::JsonDocument m_def_cfg{}, m_user_cfg{};
+		JsonDocument m_def_cfg{}, m_user_cfg{};
 
 		bool m_is_edited{};
 
@@ -36,13 +34,11 @@ namespace core {
 						DBG(msg::warn, "cfg::process: mount still failed after format\n");
 						esp_restart();
 					}
-				}
-				else {
+				} else {
 					DBG(msg::neg, "cfg::process: format failed\n");
 					esp_restart();
 				}
-			}
-			else
+			} else
 				DBG(msg::pos, "cfg::process: littlefs mounted successfully\n");
 
 			load_def_file();
@@ -51,6 +47,17 @@ namespace core {
 				DBG(msg::inf, "cfg::process: user config not found, using defaults\n");
 
 			apply_def_file();
+		}
+
+		void handle() {
+			static std::uint32_t    last_update{};
+			constexpr static auto	k_update_delay = 30000u;
+
+			const auto cur_time = millis();
+			if (cur_time - last_update >= k_update_delay) {
+				save_file();
+				last_update = cur_time;
+			}
 		}
 
 		bool set(const cfg_key& key, const json_value& value) {
@@ -62,13 +69,12 @@ namespace core {
 			return true;
 		}
 
-		// @todo: doc[ key ].is<T>()
 		[[nodiscard]] json_value get(const cfg_key& key) {
 			json_value result{};
 
-			if (m_user_cfg.containsKey(key))
+			if (!m_user_cfg[ key ].isNull())
 				result = m_user_cfg[ key ];
-			else if (m_def_cfg.containsKey(key))
+			else if (!m_def_cfg[ key ].isNull())
 				result = m_def_cfg[ key ];
 
 			return result;
@@ -83,7 +89,7 @@ namespace core {
 			Serial.println(m_is_edited ? "true" : "false");
 
 			if (!m_is_edited) {
-				Serial.println("cfg::save_file: save_file: no changes to save");
+				DBG(msg::inf, "cfg::save_file: save_file: no changes to save\n");
 				return true;
 			}
 
@@ -93,7 +99,7 @@ namespace core {
 				return false;
 			}
 
-			ArduinoJson::JsonDocument json{};
+			JsonDocument json{};
 			for (JsonPair kv : m_user_cfg.as< JsonObject >())
 				json[ kv.key() ] = kv.value();
 
@@ -111,6 +117,10 @@ namespace core {
 			return true;
 		}
 
+		JsonDocument get_cfg(const bool def) {
+			return def ? m_def_cfg : m_user_cfg;
+		}
+
 	private:
 		bool load_user_file() {
 			if (!LITTLEFS.exists(k_user_file)) {
@@ -124,7 +134,7 @@ namespace core {
 				return false;
 			}
 
-			ArduinoJson::JsonDocument json{};
+			JsonDocument json{};
 			if (const auto error = deserializeJson(json, file)) {
 				DBG(msg::err, "cfg::load_user_file: failed to parse user config, error:\n");
 				Serial.println(error.c_str());
@@ -141,7 +151,6 @@ namespace core {
 			m_def_cfg[ "wifi_password" ] = "iforgotthepassword";
 
 			m_def_cfg[ "display_brightness" ] = 100;
-			m_def_cfg[ "display_rot" ] = 0;
 
 			m_def_cfg[ "led_clr_r" ] = 255.f;
 			m_def_cfg[ "led_clr_g" ] = 255.f;
@@ -157,7 +166,7 @@ namespace core {
 
 			for (JsonPair kv : m_def_cfg.as< JsonObject >()) {
 				const char* key = kv.key().c_str();
-				if (!m_user_cfg.containsKey(key)) {
+				if (m_user_cfg[ key ].isNull()) {
 					m_user_cfg[ key ] = kv.value();
 					applied_cnt++;
 					m_is_edited = true;

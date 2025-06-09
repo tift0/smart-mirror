@@ -5,7 +5,7 @@
 namespace view {
 	class c_battery : public singleton_t< c_battery > {
 	private:
-		Adafruit_INA219 m_ina219{};
+		Adafruit_INA219			m_ina219{};
 
 		bool					m_is_charging{};
 		float					m_voltage{};
@@ -35,9 +35,9 @@ namespace view {
 		}
 
 		bool is_charging() {
-			const float m_cur_mA = m_ina219.getCurrent_mA();
+			const float cur_mA = m_ina219.getCurrent_mA();
 
-			return m_is_charging = m_cur_mA > k_charging_threshold;
+			return m_is_charging = cur_mA > k_charging_threshold;
 		}
 
 		/*
