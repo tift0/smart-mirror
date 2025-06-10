@@ -211,7 +211,7 @@ namespace core {
 		}
 
 		void connect() const {
-			if (m_ssid.length() == 0 && m_password.length() == 0) {
+			if (m_ssid.length() == 0 && m_password.length() == 0) 
 				DBG(msg::err, "wifi::connect: received empty auth data\n");
 
 			if (WiFi.status() == WL_CONNECTED)
