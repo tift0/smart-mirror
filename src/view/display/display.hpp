@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/renderer/renderer.hpp"
+#include "core/draw/draw.hpp"
 
 #include "sdk/anim/anim.hpp"
 
@@ -18,16 +18,16 @@ namespace view {
 					 (cur_time / 60000) % 60
 			);
 
-			core::g_renderer.draw_text(pos, time_str, core::e_clr::white, 1, core::e_align::center);
+			core::g_draw.draw_text(pos, time_str, core::e_clr::white, 1, core::e_align::center);
 		}
 
 		void show_charge(const math::vec2_t< std::int16_t > pos) {
 			constexpr auto k_size = 15;
 			const auto     percentage = view::g_battery.percent(view::g_battery.voltage());
 
-			core::g_renderer.draw_text( { 10, 20 }, String(percentage), core::e_clr::white);
+			core::g_draw.draw_text( { 10, 20 }, String(percentage), core::e_clr::white);
 
-			core::g_renderer.draw_rect(pos, { static_cast< std::int16_t >(k_size * percentage), 7 }, core::e_clr::white);
+			core::g_draw.draw_rect(pos, { static_cast< std::int16_t >(k_size * percentage), 7 }, core::e_clr::white);
 
 			// @todo: +is_charging
 		}
@@ -46,7 +46,7 @@ namespace view {
 					String					disp_str = str.length() > k_max_length
 															? str.substring(0u, k_max_length - 3u) + "..." : str;
 
-					core::g_renderer.draw_text(
+					core::g_draw.draw_text(
 						{ 0u, padding }, disp_str, core::e_clr::white
 					);
 					padding += 17u;
@@ -63,7 +63,7 @@ namespace view {
 			if (!m_is_initialized)
 				return;
 
-			auto screen_size = core::g_renderer.screen_size();
+			auto screen_size = core::g_draw.screen_size();
 
 			show_date({ static_cast< short >(screen_size.x() / 2), 1 });
 

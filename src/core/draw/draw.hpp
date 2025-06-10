@@ -17,7 +17,7 @@ namespace core {
 		magenta = 0xF81F, yellow = 0xFFE0, orange = 0xFC00
 	};
 
-	class c_renderer : public singleton_t< c_renderer > {
+	class c_draw : public singleton_t< c_draw > {
 	private:
 		enum e_pinout { e_cs = 13, e_dc = 2, e_rst = 4, e_mosi = 23, e_sclk = 18 };
 
@@ -82,6 +82,7 @@ namespace core {
 				size.y() + k_padding * 2,
 				e_clr::black
 			);
+			m_display->endWrite();
 		}
 
 	public:
@@ -166,5 +167,5 @@ namespace core {
 		}
 	};
 
-	auto& g_renderer = c_renderer::instance();
+	auto& g_draw = c_draw::instance();
 }

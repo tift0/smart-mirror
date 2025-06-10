@@ -12,14 +12,14 @@ void setup() {
 
 	core::g_cfg_mngr.process();
 
-	core::g_renderer.process();
+	core::g_draw.process();
 
 	if (ESP.getFreeHeap() < 10240) {
 		DBG(msg::err, "not enough free heap\n");
 		esp_restart();
 	}
 
-	if (!core::g_renderer.is_valid()) {
+	if (!core::g_draw.is_valid()) {
 		DBG(msg::err, "renderer init failed\n");
 		esp_restart();
 	}

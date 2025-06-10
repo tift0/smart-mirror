@@ -2,16 +2,13 @@
 
 #include <ArduinoJson.h>
 #include <WebServer.h>
+#include <WiFiMulti.h>
+#include <ESPping.h>
 
 #include "core/notice/notice.hpp"
 
 #include "core/cfg/cfg.hpp"
 
-/*
- * @todo 1:
- *		> 2 way connection
- *		  i.e. connection between: phone -> esp -> local wifi
- */
 namespace core {
 	struct recv_data_t {
 	private:
@@ -37,11 +34,10 @@ namespace core {
 		static constexpr std::uint8_t	k_max_reconnect_attempts = 5u;
 		static constexpr std::uint16_t	k_def_port = 80u;
 
-		String			m_ssid{}, m_password{};
+		String			m_ssid{ "DDosNIGGAS" }, m_password{ "4xyypCFo" };
 		std::uint8_t	m_reconnect_attempts{};
 
-		std::unique_ptr< WebServer > m_server;
-
+		std::unique_ptr< WebServer >	m_server;
 	private:
 		void handle_notice_post() {
 			DBG(msg::recv, "request received at /post:\n");
@@ -128,15 +124,14 @@ namespace core {
 				return;
 			}
 
-			bool changed{};
+			bool is_changed{};
 			for (JsonPair kv : json.as< JsonObject >()) {
 				const auto key = kv.key().c_str();
 				g_cfg_mngr.set(key, kv.value());
-				changed = true;
+				is_changed = true;
 			}
 
-			if (changed)
-				g_cfg_mngr.save_file();
+			is_changed ? g_cfg_mngr.save_file() : 0;
 
 			const auto response = R"({"status": "success"})";
 			m_server->send(200, "application/json", response);
@@ -191,12 +186,36 @@ namespace core {
 			);
 		}
 
-		/* @todo 1 */
-		void connect() const {
-			if (m_ssid.length() == 0 || m_password.length() == 0) {
-				DBG(msg::err, "wifi::connect: received empty auth data\n");
-				return;
+		void checkConnection() {
+			switch(WiFi.status()) {
+				case WL_CONNECTED:
+					DBG(msg::pos, "wifi: connected\n");
+					Serial.println(WiFi.SSID());
+					Serial.println(WiFi.localIP());
+
+					DBG(msg::inf, "ping google.com - ");
+					if (Ping.ping("google.com"))
+						DBG(msg::none, "ok\n");
+					else
+						DBG(msg::none, "fail\n");
+
+					break;
+
+				case WL_CONNECT_FAILED:
+					DBG(msg::err, "wifi: wrong password or smt\n");
+					break;
+
+				default:
+					DBG(msg::err, "wifi: unknown\n");
 			}
+		}
+
+		void connect() const {
+			if (m_ssid.length() == 0 && m_password.length() == 0) {
+				DBG(msg::err, "wifi::connect: received empty auth data\n");
+
+			if (WiFi.status() == WL_CONNECTED)
+				return;
 
 			WiFi.begin(
 				m_ssid.c_str(),
@@ -240,26 +259,66 @@ namespace core {
 			g_cfg_mngr.add_observer(
 				"wifi_ssid", [ & ](const std::string& key, const JsonVariant& value) {
 					m_ssid = value.as< String >();
-					//reconnect();
+					reconnect();
 				}
 			);
 
 			g_cfg_mngr.add_observer(
 				"wifi_password", [ & ](const std::string& key, const JsonVariant& value) {
 					m_password = value.as< String >();
-					//reconnect();
+					reconnect();
 				}
 			);
 		}
 
 		void setup_wifi() {
-			WiFi.softAP(
-				"espwfsm",
-				"iforgotthepassword"
-			);
+			WiFi.mode(WIFI_AP_STA);
 
-			DBG(msg::inf, "ip address: ");
+			const IPAddress local_ip(192, 168, 4, 1),
+							gateway(192, 168, 4, 1),
+							subnet(255, 255, 255, 0);
+
+			if (!WiFi.softAPConfig(local_ip, gateway, subnet)) {
+				DBG(msg::err, "AP config failed\n");
+				return;
+			}
+
+			if (!WiFi.softAP("espwfsm", "iforgotthepassword")) {
+				DBG(msg::err, "AP setup failed\n");
+				return;
+			}
+
+			if (!WiFi.enableAP(true)) {
+				DBG(msg::err, "failed to enable AP\n");
+				return;
+			}
+
+			esp_netif_t* ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+			esp_netif_t* sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+
+			if (ap_netif && sta_netif) {
+				esp_netif_ip_info_t ap_ip_info{};
+				ap_ip_info.ip.addr = local_ip;
+				ap_ip_info.netmask.addr = subnet;
+				ap_ip_info.gw.addr = gateway;
+				esp_netif_set_ip_info(ap_netif, &ap_ip_info);
+
+				esp_netif_ip_info_t sta_ip_info{};
+				esp_netif_get_ip_info(sta_netif, &sta_ip_info);
+
+				esp_netif_ip_info_t route_info{};
+				route_info.ip.addr = 0;
+				route_info.netmask.addr = 0;
+				route_info.gw.addr = sta_ip_info.gw.addr;
+				esp_netif_set_ip_info(ap_netif, &route_info);
+			}
+
+			DBG(msg::inf, "esp ip address: ");
 			Serial.println(WiFi.softAPIP());
+
+			WiFi.setSleep(false);
+
+			connect();
 		}
 
 		void setup_server() {
@@ -267,8 +326,28 @@ namespace core {
 			m_server->begin();
 		}
 
-		void handle() const {
+		void handle() {
 			m_server->handleClient();
+
+			static std::uint32_t last_update{};
+			constexpr static auto k_update_delay = 10000u;
+
+			const auto cur_time = millis();
+			if (cur_time - last_update >= k_update_delay) {
+				DBG(msg::inf, "AP status: ");
+				Serial.printf("connected clients: %d\n", WiFi.softAPgetStationNum());
+				Serial.printf("AP ip: %s\n", WiFi.softAPIP().toString().c_str());
+				Serial.printf("AP gateway: %s\n", WiFi.softAPNetworkID().toString().c_str());
+
+				if (WiFi.status() == WL_CONNECTED) {
+					Serial.printf("STA ip: %s\n", WiFi.localIP().toString().c_str());
+					Serial.printf("STA gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+					Serial.printf("STA dns: %s\n", WiFi.dnsIP().toString().c_str());
+					checkConnection();
+				}
+
+				last_update = cur_time;
+			}
 		}
 	};
 
