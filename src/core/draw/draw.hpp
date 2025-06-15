@@ -25,7 +25,7 @@ namespace core {
 		bool				m_is_initialized{};
 
 		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_size = 1u) {
+		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_scale = 1u) {
 			if (!is_valid()) {
 				DBG(msg::err, "measure_text: invalid display or renderer");
 				return { 0, 0 };
@@ -37,16 +37,16 @@ namespace core {
 			}
 
 			// yep
-			constexpr std::uint64_t k_base_width = 6u,
-									k_base_height = 8u;
+			constexpr int	k_base_width = 6u,
+							k_base_height = 8u;
 
-			auto	width = text.length() * (k_base_width * font_size),
-					height = k_base_height * font_size;
-
-			return { static_cast< _ty >(width), static_cast< _ty >(height) };
+			return {
+				static_cast< _ty >(text.length() * (k_base_width * font_scale)),
+				static_cast< _ty >(k_base_height * font_scale)
+			};
 		}
 
-		template < typename _ty_p = std::uint16_t, typename _ty_s = std::uint16_t >
+		template < typename _ty_p = int, typename _ty_s = int >
 		math::vec2_t< _ty_p > adjust_position(
 			math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size, const e_align flags
 		) {
@@ -71,9 +71,9 @@ namespace core {
 			return { new_x, new_y };
 		}
 
-		template < typename _ty_p = std::int16_t, typename _ty_s = std::int16_t >
+		template < typename _ty_p = int, typename _ty_s = int >
 		void clear_text_area(math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size) const {
-			constexpr static std::int16_t k_padding = 1;
+			constexpr static int k_padding = 1;
 
 			m_display->writeFillRect(
 				pos.x() - k_padding,
@@ -103,16 +103,17 @@ namespace core {
 			m_is_initialized = true;
 		}
 
-		template < typename _ty = std::int16_t >
+		// @todo
+		template < typename _ty = int >
 		void draw_text(
 			math::vec2_t< _ty > pos, const String& str, const std::uint16_t clr = e_clr::white,
-			const std::uint8_t font_size = 1u, const e_align flags = e_align::none
+			const int font_scale = 1, const e_align flags = e_align::none
 		) {
 			if (!is_valid()
 				|| str.isEmpty())
 				return;
 
-			const auto size = measure_text(str, font_size);
+			const auto size = measure_text(str, font_scale);
 			pos = adjust_position(pos, size, flags);
 
 			static String prev_str{};
@@ -121,7 +122,7 @@ namespace core {
 				prev_str = str;
 			}
 
-			m_display->setTextSize(font_size);
+			m_display->setTextSize(font_scale);
 			m_display->setTextColor(clr, e_clr::black);
 			m_display->setTextWrap(true);
 			m_display->setCursor(pos.x(), pos.y());
@@ -129,7 +130,7 @@ namespace core {
 			m_display->print(str);
 		}
 
-		template < typename _ty = std::int16_t >
+		template < typename _ty = int >
 		void draw_line(math::vec2_t< _ty > start, math::vec2_t< _ty > end, const e_clr clr) {
 			if (!is_valid())
 				return;
@@ -137,7 +138,7 @@ namespace core {
 			m_display->drawLine(start.x(), start.y(), end.x(), end.y(), clr);
 		}
 
-		template < typename _ty = std::int16_t >
+		template < typename _ty = int >
 		void draw_rect(math::vec2_t< _ty > pos, math::vec2_t< _ty > size, const e_clr clr) {
 			if (!is_valid())
 				return;
@@ -145,7 +146,7 @@ namespace core {
 			m_display->fillRect(pos.x(), pos.y(), size.x(), size.y(), clr);
 		}
 
-		template < typename _ty = std::int16_t >
+		template < typename _ty = int >
 		void draw_circle(math::vec2_t< _ty > center, _ty radius, const e_clr clr, const bool filled = true) {
 			if (!is_valid())
 				return;
@@ -155,15 +156,15 @@ namespace core {
 				: m_display->drawCircle(center.x(), center.y(), radius, clr);
 		}
 
-		template < typename _ty = std::int16_t >
+		template < typename _ty = int >
 		math::vec2_t< _ty > screen_size() {
 			if (!is_valid())
 				return { 0, 0 };
 
-			auto	width = m_display->width(),
-					height = m_display->height();
-
-			return { width, height };
+			return {
+				m_display->width(),
+				m_display->height()
+			};
 		}
 	};
 

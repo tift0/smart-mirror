@@ -9,7 +9,8 @@ namespace math {
 	public:
 		vec2_t() = default;
 
-		vec2_t(_ty x, _ty y) : _x(x), _y(y) {
+		vec2_t(_ty x, _ty y)
+			: _x(x), _y(y) {
 		}
 
 		_ty x() { return _x; }

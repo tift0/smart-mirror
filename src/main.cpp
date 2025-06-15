@@ -26,7 +26,7 @@ void setup() {
 
 	core::g_wifi.process();
 
-	view::g_battery.process();
+	//view::g_battery.process();
 
 	view::g_display.process();
 
@@ -40,7 +40,7 @@ void loop() {
 
 	core::g_notice_mngr.handle();
 
-	view::g_battery.handle();
+	//view::g_battery.handle();
 
 	view::g_display.handle();
 }

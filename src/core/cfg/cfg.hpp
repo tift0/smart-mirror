@@ -31,7 +31,7 @@ namespace core {
 				if (LITTLEFS.format()) {
 					DBG(msg::pos, "cfg::process: format successful, retrying mount...\n");
 					if (!LITTLEFS.begin(false)) {
-						DBG(msg::warn, "cfg::process: mount still failed after format\n");
+						DBG(msg::err, "cfg::process: mount still failed after format\n");
 						esp_restart();
 					}
 				} else {
@@ -41,17 +41,18 @@ namespace core {
 			} else
 				DBG(msg::pos, "cfg::process: littlefs mounted successfully\n");
 
-			load_def_file();
-
-			if (!load_user_file())
-				DBG(msg::inf, "cfg::process: user config not found, using defaults\n");
-
-			apply_def_file();
+			if (load_user_file())
+				DBG(msg::pos, "cfg::process: user config loaded successfully\n");
+			else {
+				DBG(msg::inf, "cfg::process: user config not found, loading default config\n");
+				load_def_file();
+				save_file();
+			}
 		}
 
 		void handle() {
-			static std::uint32_t    last_update{};
-			constexpr static auto	k_update_delay = 30000u;
+			static unsigned long	last_update{};
+			constexpr static auto	k_update_delay = 30000;
 
 			const auto cur_time = millis();
 			if (cur_time - last_update >= k_update_delay) {
@@ -63,6 +64,11 @@ namespace core {
 		bool set(const cfg_key& key, const json_value& value) {
 			m_user_cfg[ key ] = value;
 			m_is_edited = true;
+
+			if (key == "wifi_ssid" || key == "wifi_password") {
+				DBG(msg::inf, "cfg::set: saving config due to critical setting change\n");
+				save_file();
+			}
 
 			notify_observers(key, value);
 
@@ -85,11 +91,11 @@ namespace core {
 		}
 
 		bool save_file() {
-			DBG(msg::inf, "cfg::save_file: save_file: m_is_edited = ");
+			DBG(msg::inf, "cfg::save_file: m_is_edited = ");
 			Serial.println(m_is_edited ? "true" : "false");
 
 			if (!m_is_edited) {
-				DBG(msg::inf, "cfg::save_file: save_file: no changes to save\n");
+				DBG(msg::inf, "cfg::save_file: no changes to save\n");
 				return true;
 			}
 
@@ -152,13 +158,10 @@ namespace core {
 
 			m_def_cfg[ "display_brightness" ] = 100;
 
-			m_def_cfg[ "led_clr_r" ] = 255.f;
-			m_def_cfg[ "led_clr_g" ] = 255.f;
-			m_def_cfg[ "led_clr_b" ] = 255.f;
-			m_def_cfg[ "led_clr_a" ] = 1023;
-
 			m_def_cfg[ "notice_timeout" ] = 15;
 			m_def_cfg[ "notice_max_cnt" ] = 3;
+
+			m_user_cfg = m_def_cfg;
 		}
 
 		void apply_def_file() {
