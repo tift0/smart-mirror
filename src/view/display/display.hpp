@@ -40,18 +40,20 @@ namespace view {
 
 			// @todo: split the str len by screen limit
 			int padding = 34;
-			for (auto& notice : notices) {
-				if (notice.m_is_active) {
-					constexpr int k_max_length = 20;
-					String        str = notice.m_app + " -> " + notice.m_msg;
-					String        disp_str = str.length() > k_max_length
-															? str.substring(0u, k_max_length - 3u) + "..." : str;
 
-					core::g_draw.draw_text(
-						{ pos.x(), pos.y() + padding }, disp_str, core::e_clr::white
-					);
-					padding += 17;
-				}
+			for (auto& notice : notices) {constexpr int k_max_length = 20;
+					String        str = notice.m_app + " -> " + notice.m_msg;
+					String        disp_str = str.length() > k_max_length ? str.substring(0u, k_max_length - 3u) + "..." : str;
+                          int font_scale = 1;
+                          if (notices.size() == 0){
+                          core::g_draw.clear_text_area({pos.x(), pos.y() + padding}, core::g_draw.measure_text(disp_str, font_scale));
+                          }
+                          if (notice.m_is_active) {
+                                  core::g_draw.draw_text(
+                                          { pos.x(), pos.y() + padding }, disp_str, core::e_clr::white
+                                  );
+                                  padding += 17;
+                          }
 			}
 		}
 

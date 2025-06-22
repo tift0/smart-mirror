@@ -24,28 +24,6 @@ namespace core {
 		Adafruit_ST7735*	m_display{};
 		bool				m_is_initialized{};
 
-		template < typename _ty = std::uint16_t >
-		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_scale = 1u) {
-			if (!is_valid()) {
-				DBG(msg::err, "measure_text: invalid display or renderer");
-				return { 0, 0 };
-			}
-
-			if (text.isEmpty()) {
-				DBG(msg::err, "measure_text: empty text\n");
-				return { 0, 0 };
-			}
-
-			// yep
-			constexpr int	k_base_width = 6u,
-							k_base_height = 8u;
-
-			return {
-				static_cast< _ty >(text.length() * (k_base_width * font_scale)),
-				static_cast< _ty >(k_base_height * font_scale)
-			};
-		}
-
 		template < typename _ty_p = int, typename _ty_s = int >
 		math::vec2_t< _ty_p > adjust_position(
 			math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size, const e_align flags
@@ -71,21 +49,38 @@ namespace core {
 			return { new_x, new_y };
 		}
 
-		template < typename _ty_p = int, typename _ty_s = int >
-		void clear_text_area(math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size) const {
-			constexpr static int k_padding = 1;
-
-			m_display->writeFillRect(
-				pos.x() - k_padding,
-				pos.y() - k_padding,
-				size.x() + k_padding * 2,
-				size.y() + k_padding * 2,
-				e_clr::black
-			);
-			m_display->endWrite();
-		}
-
 	public:
+                template < typename _ty = std::uint16_t >
+		math::vec2_t< _ty > measure_text(const String& text, const std::uint8_t font_scale = 1u) {
+			if (!is_valid()) {
+				DBG(msg::err, "measure_text: invalid display or renderer");
+				return { 0, 0 };
+			}
+
+			if (text.isEmpty()) {
+				DBG(msg::err, "measure_text: empty text\n");
+				return { 0, 0 };
+			}
+
+			// yep
+			constexpr int	k_base_width = 6u,
+							k_base_height = 8u;
+
+			return {
+				static_cast< _ty >(text.length() * (k_base_width * font_scale)),
+				static_cast< _ty >(k_base_height * font_scale)
+			};
+		}
+                template < typename _ty_p = int, typename _ty_s = int >
+		void clear_text_area(math::vec2_t< _ty_p > pos, math::vec2_t< _ty_s > size) const {
+                    constexpr static int k_padding = 1;
+
+                    m_display->writeFillRect(pos.x() - k_padding, pos.y() - k_padding,
+                                             size.x() + k_padding * 2,
+                                             size.y() + k_padding * 2, e_clr::black);
+                    m_display->endWrite();
+                  }
+
 		bool is_valid() const { return m_is_initialized && m_display != nullptr; }
 
 		void process() {
